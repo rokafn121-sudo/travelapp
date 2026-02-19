@@ -1,0 +1,20 @@
+{
+    "admin": {
+        "password_hash": "fe1ad13c3caa21676fb70219cf62632e266b34facd799da4d0eb2683e3005f3d",
+        "role": "admin",
+        "approved": true,
+        "created_at": "2026-02-19 23:00:22"
+    },
+    "test_guest": {
+        "password_hash": "937e8d5fbb48bd4949536cd65b8d35c426b80d2f830c5c308e2cdec422ae2244",
+        "role": "user",
+        "approved": true,
+        "created_at": "2026-02-19 23:00:22"
+    },
+    "영현": {
+        "password_hash": "a8f5feb4ae6e96c6597890d5882583d7885643dafa6a65e672878ba86768d82e",
+        "role": "user",
+        "approved": true,
+        "created_at": "2026-02-19 23:09:43"
+    }
+}
