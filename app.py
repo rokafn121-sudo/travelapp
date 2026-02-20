@@ -20,9 +20,10 @@ st.markdown("""
     @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
 
     /* Global Font */
-    html, body, [class*="css"] {
+    html, body, [class*="css"], .stApp {
         font-family: 'Jua', sans-serif !important;
-        color: #1f1f1f;
+        background-color: #f8f9fa !important;
+        color: #1f1f1f !important;
         letter-spacing: 0.5px;
     }
 
@@ -340,7 +341,7 @@ def main_app():
                                 st.success("수정 완료!")
                                 st.rerun()
                         with col2:
-                            if st.button("🔴 위 여행 삭제하기", use_container_width=True):
+                            if st.button("🔴 위 여행 삭제하기", key=f"del_{tid}", use_container_width=True):
                                 del st.session_state.folders[tid]
                                 save_folders(st.session_state.folders)
                                 st.success("여행이 삭제되었습니다.")
