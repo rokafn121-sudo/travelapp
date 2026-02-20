@@ -1,38 +1,10 @@
 {
-    "default_trip": {
-        "name": "나의 첫 번째 여행",
-        "password": "0713",
+    "f67e0cb0-57e4-45dc-a936-13e5fd5f4b7b": {
+        "name": "다낭여행",
+        "password": "1234",
         "budget": 1000000,
-        "created_at": "2026-02-19"
-    },
-    "129d847a-e065-417c-8190-395b8eae937b": {
-        "name": "Europe 2024",
-        "password": "euro",
-        "budget": 5000000,
-        "created_at": "2026-02-19"
-    },
-    "fdc7d772-3464-4bab-84d7-12f62b4bffdd": {
-        "name": "Europe 2024",
-        "password": "euro",
-        "budget": 5000000,
-        "created_at": "2026-02-19"
-    },
-    "38f1a4a2-e52d-4386-9f09-5a8eb7171c79": {
-        "name": "미야코지마",
-        "password": "1234",
-        "budget": 4500000,
-        "created_at": "2026-02-19"
-    },
-    "aa5dea2b-9f67-465a-b90a-f8b8562b8800": {
-        "name": "미야코지마",
-        "password": "1234",
-        "budget": 5000000,
-        "created_at": "2026-02-19"
-    },
-    "064454f4-8283-42b7-bad9-e5378d426418": {
-        "name": "Final Test Trip",
-        "password": "1234",
-        "budget": 5000001000000,
+        "start_date": "2026-02-20",
+        "end_date": "2026-02-23",
         "created_at": "2026-02-20"
     }
 }

@@ -2,3 +2,6 @@ streamlit
 pandas
 plotly
 yfinance
+extra-streamlit-components
+openpyxl
+SQLAlchemy
