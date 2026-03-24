@@ -1,0 +1,8 @@
+{
+    "admin": {
+        "password_hash": "fe1ad13c3caa21676fb70219cf62632e266b34facd799da4d0eb2683e3005f3d",
+        "role": "admin",
+        "approved": true,
+        "created_at": "2026-02-20 22:51:39"
+    }
+}

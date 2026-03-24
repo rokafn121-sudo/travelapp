@@ -1,0 +1,723 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import extra_streamlit_components as stx
+from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests
+from datetime import datetime
+import uuid
+import os
+
+# 페이지 설정
+st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️", layout="wide")
+
+# Image Paths
+# Local or deployed relative path
+PROFILE_IMAGE_PATH = "profile.png"
+
+# CSS 스타일 적용 (Cute Theme & Jua Font)
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+
+    /* Global Font */
+    html, body, [class*="css"], .stApp {
+        font-family: 'Jua', sans-serif !important;
+        background-color: #f8f9fa !important;
+        color: #1f1f1f !important;
+        letter-spacing: 0.5px;
+    }
+
+    /* 카드 및 컨테이너 라운딩 추가로 귀엽게 */
+    .stTextInput>div>div>input {
+        border-radius: 20px !important;
+    }
+    .stButton>button {
+        border-radius: 25px !important;
+        font-weight: 600 !important;
+    }
+
+    /* Primary Color: Ant Design Blue */
+    :root {
+        --primary-color: #1677ff;
+        --bg-color: #f5f5f5;
+        --card-bg: #ffffff;
+    }
+
+    /* Override Streamlit Main Container Padding for Mobile */
+    .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 5rem !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+        max-width: 800px; /* Maximize mobile view width on desktop */
+    }
+
+    /* Metric Cards */
+    .metric-card {
+        padding: 16px;
+        border-radius: 12px;
+        background-color: var(--card-bg);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        text-align: center;
+        margin-bottom: 12px;
+    }
+
+    /* Buttons (Ant Design Style) */
+    .stButton button {
+        background-color: var(--primary-color) !important;
+        color: white !important;
+        border-radius: 8px !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-weight: 500 !important;
+        font-size: 16px !important;
+        width: 100%; /* Full width on mobile */
+        box-shadow: 0 2px 0 rgba(5, 145, 255, 0.1);
+        transition: all 0.3s;
+    }
+    .stButton button:hover {
+        background-color: #4096ff !important;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 10px rgba(5, 145, 255, 0.2);
+    }
+    .stButton button:active {
+        background-color: #0958d9 !important;
+    }
+    
+    /* Secondary Button (Outline) - using type="secondary" */
+    button[kind="secondary"] {
+        background-color: transparent !important;
+        color: var(--primary-color) !important;
+        border: 1px solid var(--primary-color) !important;
+        box-shadow: none !important;
+    }
+    button[kind="secondary"]:hover {
+        background-color: #e6f7ff !important;
+    }
+
+    /* Input Fields */
+    .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input {
+        border-radius: 8px !important;
+        border: 1px solid #d9d9d9 !important;
+        padding: 10px 12px !important;
+    }
+    .stTextInput input:focus, .stNumberInput input:focus {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1) !important;
+    }
+
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        border-radius: 8px 8px 0 0;
+        padding: 0 24px;
+        font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: white !important;
+        color: var(--primary-color) !important;
+        border-bottom: 2px solid var(--primary-color) !important;
+    }
+
+    /* Hide Default Footer */
+    footer {visibility: hidden;}
+    
+    /* Custom Profile Image Style */
+    .profile-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        border: 3px solid white;
+    }
+    
+    /* Mobile-first Headers */
+    h1, h2, h3 {
+        font-weight: 600 !important;
+        letter-spacing: -0.5px;
+    }
+    
+    /* Expander Style */
+    .streamlit-expanderHeader {
+        background-color: white;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 8px;
+        border: 1px solid #f0f0f0;
+    }
+
+    </style>
+    """, unsafe_allow_html=True)
+
+# 초기화
+if 'folders' not in st.session_state:
+    st.session_state.folders = load_folders()
+
+if 'current_trip_id' not in st.session_state:
+    st.session_state.current_trip_id = None
+
+if 'df_expenses' not in st.session_state:
+    st.session_state.df_expenses = pd.DataFrame()
+
+# 세션 상태: 사용자 인증
+if 'user_session' not in st.session_state:
+    st.session_state.user_session = None
+
+# Cookie Manager 초기화
+cookie_manager = stx.CookieManager(key="cookie_manager")
+
+if 'explicit_logout' not in st.session_state:
+    st.session_state.explicit_logout = False
+
+# Perform pending logout cookie deletions
+if st.session_state.get('do_logout', False):
+    try:
+        cookie_manager.delete("saved_user", key="del_u")
+    except Exception:
+        pass
+    try:
+        cookie_manager.delete("saved_role", key="del_r")
+    except Exception:
+        pass
+    st.session_state.do_logout = False
+
+# --- 자동 로그인 체크 로직 ---
+if st.session_state.user_session is None:
+    if st.session_state.explicit_logout:
+        # Reset the flag after one bypass to allow future normal logins
+        pass # Wait for user to login manually. 
+    else:
+        saved_user = cookie_manager.get(cookie="saved_user")
+        saved_role = cookie_manager.get(cookie="saved_role")
+        if saved_user and saved_role:
+            # Check if user is still valid/approved in latest DB
+            users = load_users()
+            if saved_user in users and users[saved_user]['approved']:
+                st.session_state.user_session = {"username": saved_user, "role": saved_role}
+                st.rerun()
+
+# --- 메인 앱 로직 (로그인 후 실행됨) ---
+def main_app():
+    user = st.session_state.user_session
+    username = user['username']
+    role = user['role']
+
+    # --- 사이드바 ---
+    try:
+        if os.path.exists(PROFILE_IMAGE_PATH):
+            st.sidebar.image(PROFILE_IMAGE_PATH, width=150)
+        else:
+            st.sidebar.warning("프로필 이미지를 찾을 수 없습니다.")
+    except Exception as e:
+        st.sidebar.error(f"이미지 로드 오류: {e}")
+
+    st.sidebar.write(f"### 👋 반가워요, {username}님!")
+    
+    if st.sidebar.button("로그아웃 (Logout)", type="secondary"):
+        st.session_state.do_logout = True
+        st.session_state.user_session = None
+        st.session_state.current_trip_id = None
+        st.session_state.explicit_logout = True
+        st.rerun()
+
+    st.sidebar.markdown("---")
+    
+    if st.session_state.current_trip_id:
+        current_trip = st.session_state.folders.get(st.session_state.current_trip_id)
+        if current_trip:
+            st.sidebar.info(f"📍 현재 여행:\n**{current_trip['name']}**")
+            if st.sidebar.button("⬅️ 여행 목록으로", type="secondary"):
+                st.session_state.current_trip_id = None
+                st.session_state.df_expenses = pd.DataFrame()
+                st.rerun()
+        else:
+            st.session_state.current_trip_id = None
+            st.rerun()
+    
+    st.sidebar.markdown("---")
+    st.sidebar.caption("Designed with ❤️ by Antigravity AI")
+
+    # --- 메인 로직 ---
+
+    if st.session_state.current_trip_id is None:
+        # Trip Selection Dashboard
+        st.title("나의 여행 목록 ✈️")
+        st.caption("소중한 추억이 담긴 여행을 선택해주세요.")
+
+        # Tab navigation for cleaner mobile view
+        if role == 'admin':
+            tabs = st.tabs(["📂 내 여행", "⚙️ 관리자"])
+        else:
+            tabs = st.tabs(["📂 내 여행"])
+
+        with tabs[0]: # 내 여행 탭
+            trip_options = {v['name']: k for k, v in st.session_state.folders.items()}
+            
+            if not trip_options:
+                st.info("아직 등록된 여행이 없어요. 😢")
+            else:
+                for name, tid in trip_options.items():
+                    trip_info = st.session_state.folders[tid]
+                    date_str = ""
+                    if "start_date" in trip_info and "end_date" in trip_info:
+                        date_str = f"<p style='margin: 0; font-size: 13px; color: #888;'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
+
+                    # Card-like container for each trip
+                    with st.container():
+                        st.markdown(f"""
+                        <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
+                            <h3 style="margin: 0 0 5px 0;">🏝 {name}</h3>
+                            {date_str}
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        col_pw, col_btn = st.columns([2, 1])
+                        with col_pw:
+                            pw_input = st.text_input(f"비밀번호", type="password", key=f"pw_{tid}", placeholder="****", label_visibility="collapsed")
+                        with col_btn:
+                            if st.button("입장", key=f"btn_{tid}"):
+                                trip_data = st.session_state.folders[tid]
+                                if pw_input == trip_data['password']:
+                                    st.session_state.current_trip_id = tid
+                                    st.session_state.df_expenses = load_data(tid)
+                                    st.toast(f"'{name}' 여행을 시작합니다! 🚀")
+                                    st.rerun()
+                                else:
+                                    st.error("비밀번호 확인 필요")
+
+        if role == 'admin':
+            with tabs[1]: # 관리자 탭
+                st.subheader("새 여행 만들기")
+                with st.form("create_trip_form"):
+                    new_trip_name = st.text_input("여행 이름 (예: 다낭 여행)")
+                    # Trip duration input
+                    new_duration = st.date_input("여행 기간", value=(datetime.now(), datetime.now() + pd.Timedelta(days=3)))
+                    new_trip_pw = st.text_input("비밀번호 설정")
+                    new_trip_budget = st.number_input("총 예산 (KRW)", min_value=0, value=1000000, step=10000)
+                    
+                    if st.form_submit_button("여행 생성하기 ✨"):
+                        if new_trip_name and new_trip_pw:
+                            if isinstance(new_duration, tuple) and len(new_duration) == 2:
+                                s_date, e_date = new_duration
+                            else:
+                                s_date = e_date = new_duration if new_duration else datetime.now()
+                            
+                            new_id = str(uuid.uuid4())
+                            st.session_state.folders[new_id] = {
+                                "name": new_trip_name,
+                                "password": new_trip_pw,
+                                "budget": int(new_trip_budget),
+                                "start_date": s_date.strftime("%Y-%m-%d"),
+                                "end_date": e_date.strftime("%Y-%m-%d"),
+                                "created_at": datetime.now().strftime("%Y-%m-%d")
+                            }
+                            save_folders(st.session_state.folders)
+                            st.success("새로운 여행이 추가되었습니다!")
+                            st.rerun()
+                        else:
+                            st.warning("이름과 비밀번호는 필수입니다.")
+                
+                st.divider()
+                st.subheader("방 (여행) 관리")
+                for tid, tdata in list(st.session_state.folders.items()):
+                    with st.expander(f"🏝 {tdata['name']} (PW: {tdata.get('password', 'N/A')})"):
+                        new_name = st.text_input("이름", value=tdata['name'], key=f"edit_name_{tid}")
+                        new_pw = st.text_input("비밀번호", value=tdata.get('password', ''), key=f"edit_pw_{tid}")
+                        new_budget = st.number_input("예산", value=int(tdata.get('budget', 0)), key=f"edit_budget_{tid}")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("수정 저장", key=f"save_{tid}", type="secondary"):
+                                st.session_state.folders[tid].update({"name": new_name, "password": new_pw, "budget": new_budget})
+                                save_folders(st.session_state.folders)
+                                st.success("수정 완료!")
+                                st.rerun()
+                        with col2:
+                            if st.button("🔴 위 여행 삭제하기", key=f"del_{tid}", use_container_width=True):
+                                del st.session_state.folders[tid]
+                                save_folders(st.session_state.folders)
+                                st.success("여행이 삭제되었습니다.")
+                                st.rerun()
+
+                st.divider()
+                st.subheader("사용자 관리")
+                users = load_users()
+                pending_users = [u for u, data in users.items() if not data['approved']]
+                approved_users = [u for u, data in users.items() if data['approved']]
+                
+                if pending_users:
+                    st.write("**승인 대기 중**")
+                    for u in pending_users:
+                        c1, c2 = st.columns([3, 1])
+                        c1.info(f"👤 {u}")
+                        if c2.button("승인", key=f"approve_{u}"):
+                            approve_user(u)
+                            st.rerun()
+                
+                if approved_users:
+                    st.write("**승인된 활성 사용자**")
+                    for u in approved_users:
+                        if u == 'admin': continue
+                        c1, c2 = st.columns([3, 1])
+                        c1.success(f"👤 {u} ({users[u].get('role', 'user')})")
+                        if c2.button("탈퇴(삭제)", key=f"delete_{u}"):
+                            delete_user(u)
+                            st.rerun()
+
+                st.divider()
+                st.subheader("지출 변경/삭제 요청 관리")
+                requests = load_expense_requests()
+                if not requests:
+                    st.caption("대기 중인 요청이 없습니다.")
+                else:
+                    for idx, req in enumerate(requests):
+                        req_type_str = "📝 수정" if req['type'] == 'edit' else "🗑️ 삭제"
+                        with st.expander(f"{req_type_str} 요청: {req['item_name']} (요청자: {req['request_user']})"):
+                            st.write(f"이유: {req.get('reason', '없음')}")
+                            if req['type'] == 'edit':
+                                st.write("변경 내용:", req['new_data'])
+                            
+                            colA, colB = st.columns(2)
+                            with colA:
+                                if st.button("✅ 승인", key=f"req_app_{idx}"):
+                                    df = load_data(req['trip_id'])
+                                    if req['type'] == 'delete':
+                                        df = df[df['ID'] != req['expense_id']]
+                                    elif req['type'] == 'edit':
+                                        mask = df['ID'] == req['expense_id']
+                                        if not df[mask].empty:
+                                            for k, v in req['new_data'].items():
+                                                df.loc[mask, k] = v
+                                    save_data(df, req['trip_id'])
+                                    
+                                    # Refresh if current trip
+                                    if st.session_state.current_trip_id == req['trip_id']:
+                                        st.session_state.df_expenses = load_data(req['trip_id'])
+
+                                    requests.pop(idx)
+                                    save_expense_requests(requests)
+                                    st.success("요청이 승인되어 데이터에 반영되었습니다!")
+                                    st.rerun()
+                            with colB:
+                                if st.button("❌ 반려", key=f"req_rej_{idx}"):
+                                    requests.pop(idx)
+                                    save_expense_requests(requests)
+                                    st.warning("요청이 반려(삭제)되었습니다.")
+                                    st.rerun()
+
+    else:
+        # Trip Dashboard
+        trip_id = st.session_state.current_trip_id
+        trip_data = st.session_state.folders[trip_id]
+        
+        # Header with Exit Button
+        col_head, col_exit = st.columns([4, 1])
+        with col_head:
+            st.title(trip_data['name'])
+            if "start_date" in trip_data and "end_date" in trip_data:
+                st.caption(f"🗓️ {trip_data['start_date']} ~ {trip_data['end_date']}")
+        with col_exit:
+            if st.button("⬅️ 뒤로", use_container_width=True, type="secondary"):
+                st.session_state.current_trip_id = None
+                st.session_state.df_expenses = pd.DataFrame()
+                st.rerun()
+            
+        # Metrics
+        budget = trip_data['budget']
+        total_spent, remaining = calculate_metrics(st.session_state.df_expenses, budget)
+        
+        # Mobile Metric Grid
+        m1, m2 = st.columns(2)
+        with m1:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 12px; color: #888;">지출 (Spent)</div>
+                <div style="font-size: 20px; font-weight: bold; color: #ff4d4f;">{total_spent:,.0f}</div>
+                <div style="font-size: 10px; color: #888;">{total_spent/budget*100:.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with m2:
+            st.markdown(f"""
+            <div class="metric-card">
+                <div style="font-size: 12px; color: #888;">잔액 (Left)</div>
+                <div style="font-size: 20px; font-weight: bold; color: {'#52c41a' if remaining > 0 else '#ff4d4f'};">{remaining:,.0f}</div>
+                 <div style="font-size: 10px; color: #888;">{remaining/budget*100:.1f}%</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.progress(min(total_spent / budget if budget > 0 else 0, 1.0))
+
+        # Main Actions
+        # Category Alerts
+        cat_budgets = trip_data.get('category_budgets', {})
+        if cat_budgets and not st.session_state.df_expenses.empty:
+            cat_totals = st.session_state.df_expenses.groupby('Category')['Amount'].sum()
+            for cat, limit in cat_budgets.items():
+                if cat in cat_totals and cat_totals[cat] > limit:
+                    st.error(f"⚠️ **예산 초과 경고:** '{cat}' 카테고리 지출({cat_totals[cat]:,.0f}원)이 설정된 예산({limit:,.0f}원)을 초과했습니다!")
+
+        tab_add, tab_history, tab_stats = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계"])
+
+        with tab_add:
+            with st.container():
+                st.markdown("### 💸 지출 기록하기")
+                col_date, col_curr = st.columns(2)
+                with col_date:
+                    date = st.date_input("날짜", datetime.now(), label_visibility="collapsed")
+                with col_curr:
+                    currency = st.selectbox("통화", ["KRW", "USD", "EUR", "JPY"], label_visibility="collapsed")
+                
+                # Fetch rate quietly
+                current_rate = get_exchange_rate(currency, date)
+                
+                category = st.selectbox("카테고리", ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"])
+                item = st.text_input("무엇을 샀나요?", placeholder="예: 맛있는 라멘")
+                
+                c1, c2 = st.columns(2)
+                with c1:
+                    amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, format="%.2f")
+                with c2:
+                    manual_rate = st.number_input("환율", value=float(current_rate), format="%.2f")
+                
+                # Photo upload
+                receipt_image = st.file_uploader("영수증 / 지출 사진 첨부 📸", type=["jpg", "jpeg", "png"])
+
+                if st.button("저장하기 (Save)", use_container_width=True):
+                    final_krw = amount_origin * manual_rate
+                    exp_id = str(uuid.uuid4())
+                    
+                    # Save image if exists
+                    image_path_saved = None
+                    if receipt_image is not None:
+                        ext = os.path.splitext(receipt_image.name)[1]
+                        if not ext: ext = ".jpg"
+                        img_filename = f"{exp_id}{ext}"
+                        save_path = os.path.join("data", "uploads", img_filename)
+                        # Ensure the directory exists
+                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                        with open(save_path, "wb") as f:
+                            f.write(receipt_image.getbuffer())
+                        image_path_saved = save_path
+
+                    new_data = pd.DataFrame({
+                        "ID": [exp_id],
+                        "Date": [pd.to_datetime(date)],
+                        "Category": [category],
+                        "Item": [item],
+                        "Amount": [final_krw],
+                        "Currency": [currency],
+                        "Original Amount": [amount_origin],
+                        "Exchange Rate": [manual_rate],
+                        "User": [username],
+                        "image_path": [image_path_saved]
+                    })
+                    st.session_state.df_expenses = pd.concat([st.session_state.df_expenses, new_data], ignore_index=True)
+                    save_data(st.session_state.df_expenses, trip_id)
+                    st.success("🎉 지출이 정상적으로 저장되었습니다!")
+                    # Use a short sleep or directly rerun depending on UX preference
+                    import time
+                    time.sleep(1.0)
+                    st.rerun()
+
+        with tab_history:
+            if not st.session_state.df_expenses.empty:
+                display_df = st.session_state.df_expenses.copy()
+                display_df = display_df.sort_values(by="Date", ascending=False)
+                
+                for idx, row in display_df.iterrows():
+                    emoji = "🍽️"
+                    if "교통" in row['Category']: emoji = "🚕"
+                    elif "숙박" in row['Category']: emoji = "🏨"
+                    elif "쇼핑" in row['Category']: emoji = "🛍️"
+                    elif "관광" in row['Category']: emoji = "🎡"
+                    
+                    icon_has_img = "🖼️ " if ('image_path' in row and pd.notna(row['image_path']) and row['image_path']) else ""
+                    st.markdown(f"""
+                    <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 16px; font-weight: 600;">{emoji} {icon_has_img}{row['Item']}</div>
+                            <div style="font-size: 12px; color: #888;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 16px; font-weight: bold; color: #1f1f1f;">-{row['Amount']:,.0f} 원</div>
+                            <div style="font-size: 11px; color: #aaa;">{row['Original Amount']:,.2f} {row['Currency']}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    if icon_has_img:
+                        with st.expander(f"📷 {row['Item']} 사진 보기"):
+                            img_p = row['image_path']
+                            if os.path.exists(img_p):
+                                st.image(img_p, use_container_width=True)
+                            else:
+                                st.warning("이미지 파일을 찾을 수 없습니다.")
+
+                    with st.expander("세부 관리 (수정/삭제)"):
+                        if role == 'admin':
+                            c_amt, c_del = st.columns([3, 1])
+                            with c_amt:
+                                new_item = st.text_input("새 항목명", value=row['Item'], key=f"adm_i_{row['ID']}")
+                                new_amt = st.number_input("새 결제금액(원화)", value=float(row['Amount']), key=f"adm_a_{row['ID']}")
+                            with c_del:
+                                if st.button("🗑️ 즉시 삭제", key=f"adm_del_{row['ID']}", type="primary"):
+                                    st.session_state.df_expenses = st.session_state.df_expenses[st.session_state.df_expenses['ID'] != row['ID']]
+                                    save_data(st.session_state.df_expenses, trip_id)
+                                    st.success("삭제 완료!")
+                                    import time; time.sleep(0.5)
+                                    st.rerun()
+                                    
+                            if st.button("✏️ 즉시 수정 저장", key=f"adm_edit_{row['ID']}"):
+                                mask = st.session_state.df_expenses['ID'] == row['ID']
+                                st.session_state.df_expenses.loc[mask, 'Item'] = new_item
+                                st.session_state.df_expenses.loc[mask, 'Amount'] = new_amt
+                                save_data(st.session_state.df_expenses, trip_id)
+                                st.success("수정 완료!")
+                                import time; time.sleep(0.5)
+                                st.rerun()
+                        else:
+                            st.caption("변경 또는 삭제는 관리자 승인이 필요합니다.")
+                            with st.form(key=f"req_f_{row['ID']}"):
+                                new_item = st.text_input("수정할 항목명", value=row['Item'])
+                                new_amt = st.number_input("수정할 금액(원화)", value=float(row['Amount']))
+                                reason = st.text_input("요청 사유", placeholder="예: 금액 잘못 입력")
+                                if st.form_submit_button("📝 변경 요청 전송"):
+                                    reqs = load_expense_requests()
+                                    reqs.append({
+                                        "type": "edit", "trip_id": trip_id, "expense_id": row['ID'], "item_name": row['Item'],
+                                        "request_user": username, "reason": reason, 
+                                        "new_data": {"Item": new_item, "Amount": new_amt, "Original Amount": new_amt, "Currency": "KRW", "Exchange Rate": 1.0}
+                                    })
+                                    save_expense_requests(reqs)
+                                    st.success("✅ 변경 요청이 전송되었습니다!")
+                            
+                            if st.button("🗑️ 내역 삭제 요청", key=f"req_d_{row['ID']}"):
+                                reqs = load_expense_requests()
+                                reqs.append({
+                                    "type": "delete", "trip_id": trip_id, "expense_id": row['ID'], "item_name": row['Item'],
+                                    "request_user": username, "reason": "사용자 삭제 요청"
+                                })
+                                save_expense_requests(reqs)
+                                st.success("✅ 삭제 요청이 전송되었습니다!")
+            else:
+                st.info("아직 지출 내역이 없어요.")
+
+        with tab_stats:
+            if not st.session_state.df_expenses.empty:
+                fig = px.pie(st.session_state.df_expenses, values='Amount', names='Category', hole=0.6,
+                             color_discrete_sequence=px.colors.qualitative.Pastel)
+                fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=200)
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Legend manually
+                usage = st.session_state.df_expenses.groupby('Category')['Amount'].sum().sort_values(ascending=False)
+                for cat, val in usage.items():
+                    st.caption(f"{cat}: {val:,.0f} KRW ({val/total_spent*100:.1f}%)")
+
+                st.markdown("### 🗓️ 일자별 예산 소진 차트 (Daily Burn Rate)")
+                df_daily = st.session_state.df_expenses.groupby(st.session_state.df_expenses['Date'].dt.date)['Amount'].sum().reset_index()
+                df_daily.columns = ['날짜', '지출액']
+                
+                fig_bar = px.bar(df_daily, x='날짜', y='지출액', text_auto='.2s', color_discrete_sequence=['#ff4d4f'])
+                fig_bar.update_layout(
+                    margin=dict(l=20, r=20, t=30, b=20),
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    xaxis_title=None,
+                    yaxis_title=None
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+                
+                # Excel Export Button
+                st.divider()
+                st.markdown("### 📥 여행 데이터 내보내기")
+                try:
+                    import io
+                    output = io.BytesIO()
+                    export_df = st.session_state.df_expenses.drop(columns=['image_path'], errors='ignore')
+                    export_df['Date'] = export_df['Date'].dt.strftime('%Y-%m-%d %H:%M')
+                    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                        export_df.to_excel(writer, index=False, sheet_name='지출내역')
+                    excel_data = output.getvalue()
+                    st.download_button(
+                        label="엑셀 파일(.xlsx) 다운로드",
+                        data=excel_data,
+                        file_name=f"여행지출내역_{trip_id}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.warning(f"엑셀 내보내기 실패: {e}")
+            else:
+                st.text("통계를 보려면 지출을 입력하세요.")
+
+
+# --- 로그인 / 회원가입 화면 (Center Layout) ---
+if st.session_state.user_session is None:
+    
+    # Profile Image Display
+    col_spacer1, col_center, col_spacer2 = st.columns([1, 2, 1])
+    
+    with col_center:
+        try:
+            if os.path.exists(PROFILE_IMAGE_PATH):
+                # Using custom HTML for circular image
+                import base64
+                with open(PROFILE_IMAGE_PATH, "rb") as f:
+                    data = base64.b64encode(f.read()).decode("utf-8")
+                
+                st.markdown(f"""
+                    <img src="data:image/png;base64,{data}" class="profile-img">
+                    <div style="text-align: center; margin-bottom: 30px;">
+                        <h2 style="margin: 0; color: #ff85c0; font-family: 'Jua', sans-serif;">✈️ 영늘 트립 트래커 ✈️</h2>
+                        <p style="color: #888; font-size: 1.1em;">당신의 완벽한 여행을 위하여 💖</p>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                st.markdown("<h1 style='text-align: center; color: #ff85c0; font-family: Jua, sans-serif;'>✈️ 영늘 트립 트래커 ✈️</h1>", unsafe_allow_html=True)
+        except Exception:
+            st.markdown("<h1 style='text-align: center; color: #ff85c0; font-family: Jua, sans-serif;'>✈️ 영늘 트립 트래커 ✈️</h1>", unsafe_allow_html=True)
+
+        tab_login, tab_signup = st.tabs(["로그인", "회원가입"])
+        
+        with tab_login:
+            login_id = st.text_input("아이디", key="login_id", placeholder="Username")
+            login_pw = st.text_input("비밀번호", type="password", key="login_pw", placeholder="Password")
+            remember_me = st.checkbox("로그인 상태 유지", value=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("시작하기 (Login)", use_container_width=True):
+                user, msg = verify_user(login_id, login_pw)
+                if user:
+                    st.session_state.user_session = {"username": login_id, "role": user['role']}
+                    st.session_state.explicit_logout = False
+                    if remember_me:
+                        cookie_manager.set("saved_user", login_id, expires_at=datetime.now() + pd.Timedelta(days=30))
+                        cookie_manager.set("saved_role", user['role'], expires_at=datetime.now() + pd.Timedelta(days=30))
+                    import time; time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error(msg)
+                    
+        with tab_signup:
+            new_id = st.text_input("아이디", key="new_id", placeholder="사용할 아이디")
+            new_pw = st.text_input("비밀번호", type="password", key="new_pw", placeholder="비밀번호 설정")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("가입 신청하기", use_container_width=True):
+                success, msg = register_user(new_id, new_pw)
+                if success:
+                    st.success(msg)
+                else:
+                    st.error(msg)
+
+else:
+    main_app()

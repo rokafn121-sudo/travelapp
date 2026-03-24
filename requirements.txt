@@ -1,0 +1,7 @@
+streamlit
+pandas
+plotly
+yfinance
+extra-streamlit-components
+openpyxl
+firebase-admin
