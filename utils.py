@@ -2,226 +2,224 @@ import pandas as pd
 import hashlib
 import yfinance as yf
 from datetime import datetime, timedelta
-from database import SessionLocal, User, Trip, Expense, ExpenseRequest
+import uuid
+from database import get_db
 
 def hash_password(password):
     """Hash a password for storing."""
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 def load_users():
-    """Load users metadata as dict for app compatibility."""
-    db = next(get_db())
-    users = db.query(User).all()
-    if not users:
-        # Create default admin user if no users
-        default_user = User(
-            username="admin",
-            password_hash=hash_password("0713"),
-            role="admin",
-            approved=True,
-            created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        )
-        db.add(default_user)
-        db.commit()
-        users = [default_user]
-        
+    """Load users from Firestore"""
+    db = get_db()
+    if not db: return {}
+    
+    users_ref = db.collection('users')
+    docs = users_ref.stream()
+    
     user_dict = {}
-    for u in users:
-        user_dict[u.username] = {
-            "password_hash": u.password_hash,
-            "role": u.role,
-            "approved": u.approved,
-            "created_at": u.created_at
+    for doc in docs:
+        user_dict[doc.id] = doc.to_dict()
+        
+    if not user_dict:
+        # Create default admin user if no users
+        admin_data = {
+            "password_hash": hash_password("0713"),
+            "role": "admin",
+            "approved": True,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
+        users_ref.document("admin").set(admin_data)
+        user_dict["admin"] = admin_data
+        
     return user_dict
 
 def save_users(users_dict):
-    """Save/update users metadata to db."""
-    db = next(get_db())
+    """Save/update users to Firestore."""
+    db = get_db()
+    if not db: return
+    batch = db.batch()
+    users_ref = db.collection('users')
     for username, data in users_dict.items():
-        existing = db.query(User).filter(User.username == username).first()
-        if existing:
-            existing.password_hash = data['password_hash']
-            existing.role = data['role']
-            existing.approved = data['approved']
-        else:
-            new_u = User(username=username, password_hash=data['password_hash'], role=data['role'], approved=data['approved'], created_at=data.get('created_at', datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-            db.add(new_u)
-    db.commit()
+        doc_ref = users_ref.document(username)
+        batch.set(doc_ref, data, merge=True)
+    batch.commit()
 
 def register_user(username, password):
-    """Register a new user (pending approval). Returns (success, message)."""
-    db = next(get_db())
-    existing = db.query(User).filter(User.username == username).first()
-    if existing:
+    """Register a new user to Firestore."""
+    db = get_db()
+    if not db: return False, "데이터베이스 연결 오류"
+    
+    doc_ref = db.collection('users').document(username)
+    if doc_ref.get().exists:
         return False, "이미 존재하는 사용자명입니다."
     
-    new_user = User(
-        username=username,
-        password_hash=hash_password(password),
-        role="user",
-        approved=False,
-        created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
-    db.add(new_user)
-    db.commit()
+    doc_ref.set({
+        "password_hash": hash_password(password),
+        "role": "user",
+        "approved": False,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
     return True, "회원가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요."
 
 def verify_user(username, password):
-    """Verify login credentials. Returns (user_data, message)."""
-    db = next(get_db())
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
+    """Verify login credentials using Firestore."""
+    db = get_db()
+    if not db: return None, "데이터베이스 연결 오류"
+    
+    doc_ref = db.collection('users').document(username)
+    doc = doc_ref.get()
+    
+    if not doc.exists:
         return None, "존재하지 않는 사용자입니다."
     
-    if user.password_hash != hash_password(password):
+    data = doc.to_dict()
+    if data.get("password_hash") != hash_password(password):
         return None, "비밀번호가 올바르지 않습니다."
         
-    if not user.approved:
+    if not data.get("approved"):
         return None, "관리자 승인 대기 중입니다."
         
-    return {"username": user.username, "role": user.role}, "로그인 성공"
+    return {"username": username, "role": data.get("role")}, "로그인 성공"
 
 def approve_user(username):
-    """Approve a pending user."""
-    db = next(get_db())
-    user = db.query(User).filter(User.username == username).first()
-    if user:
-        user.approved = True
-        db.commit()
+    db = get_db()
+    if not db: return False
+    doc_ref = db.collection('users').document(username)
+    if doc_ref.get().exists:
+        doc_ref.update({"approved": True})
         return True
     return False
 
 def delete_user(username):
-    """Delete a user."""
-    db = next(get_db())
-    user = db.query(User).filter(User.username == username).first()
-    if user and user.role != "admin": # Prevent deleting main admin
-        db.delete(user)
-        db.commit()
+    db = get_db()
+    if not db: return False
+    doc_ref = db.collection('users').document(username)
+    doc = doc_ref.get()
+    if doc.exists and doc.to_dict().get("role") != "admin": # Prevent deleting admin
+        doc_ref.delete()
         return True
     return False
 
 def load_folders():
-    """Load folders metadata as dict for app compatibility."""
-    db = next(get_db())
-    trips = db.query(Trip).all()
+    """Load trips from Firestore."""
+    db = get_db()
+    if not db: return {}
+    trips_ref = db.collection('trips')
+    docs = trips_ref.stream()
     folder_dict = {}
-    for t in trips:
-        folder_dict[t.id] = {
-            "name": t.name,
-            "password": t.password,
-            "budget": t.budget,
-            "start_date": t.start_date,
-            "end_date": t.end_date,
-            "category_budgets": t.category_budgets if t.category_budgets else {},
-            "created_at": t.created_at
-        }
+    for doc in docs:
+        folder_dict[doc.id] = doc.to_dict()
     return folder_dict
 
 def save_folders(folders_dict):
-    """Sync dict to db."""
-    db = next(get_db())
-    # Delete trips that are no longer in the dict
-    existing_ids = [t.id for t in db.query(Trip).all()]
-    for tid in existing_ids:
+    """Sync trips to Firestore."""
+    db = get_db()
+    if not db: return
+    
+    trips_ref = db.collection('trips')
+    existing_docs = [doc.id for doc in trips_ref.stream()]
+    
+    # Delete removed ones
+    for tid in existing_docs:
         if tid not in folders_dict:
-            db.query(Trip).filter(Trip.id == tid).delete(synchronize_session=False)
-            db.query(Expense).filter(Expense.trip_id == tid).delete(synchronize_session=False)
+            trips_ref.document(tid).delete()
 
+    # Update or add
+    batch = db.batch()
     for trip_id, data in folders_dict.items():
-        existing = db.query(Trip).filter(Trip.id == trip_id).first()
-        if existing:
-            existing.name = data['name']
-            existing.password = data['password']
-            existing.budget = data['budget']
-            existing.start_date = data.get('start_date')
-            existing.end_date = data.get('end_date')
-            existing.category_budgets = data.get('category_budgets', {})
-        else:
-            new_trip = Trip(
-                id=trip_id,
-                name=data['name'],
-                password=data['password'],
-                budget=data['budget'],
-                start_date=data.get('start_date'),
-                end_date=data.get('end_date'),
-                category_budgets=data.get('category_budgets', {}),
-                created_at=data.get('created_at', datetime.now().strftime("%Y-%m-%d"))
-            )
-            db.add(new_trip)
-    db.commit()
+        doc_ref = trips_ref.document(trip_id)
+        batch.set(doc_ref, data, merge=True)
+    batch.commit()
 
 def load_data(trip_id=None):
-    """
-    Loads data from the DB for a specific trip into DataFrame.
-    """
-    if not trip_id:
-        return pd.DataFrame(columns=["ID", "Date", "Category", "Item", "Amount", "Currency", "Original Amount", "Exchange Rate", "User", "image_path"])
+    """Load expenses for a trip from Firestore into DataFrame."""
+    empty_df = pd.DataFrame(columns=["ID", "Date", "Category", "Item", "Amount", "Currency", "Original Amount", "Exchange Rate", "User", "image_path"])
+    if not trip_id: return empty_df
         
-    db = next(get_db())
-    expenses = db.query(Expense).filter(Expense.trip_id == trip_id).all()
+    db = get_db()
+    if not db: return empty_df
+        
+    expenses_ref = db.collection('expenses').where('trip_id', '==', trip_id)
+    docs = expenses_ref.stream()
     
     data_list = []
-    for e in expenses:
+    for doc in docs:
+        d = doc.to_dict()
         data_list.append({
-            "ID": e.id,
-            "Date": e.date,
-            "Category": e.category,
-            "Item": e.item,
-            "Amount": e.amount,
-            "Currency": e.currency,
-            "Original Amount": e.original_amount,
-            "Exchange Rate": e.exchange_rate,
-            "User": e.user,
-            "image_path": e.image_path
+            "ID": d.get("id"),
+            "Date": d.get("date"),
+            "Category": d.get("category"),
+            "Item": d.get("item"),
+            "Amount": d.get("amount"),
+            "Currency": d.get("currency"),
+            "Original Amount": d.get("original_amount"),
+            "Exchange Rate": d.get("exchange_rate"),
+            "User": d.get("user", "알수없음"),
+            "image_path": d.get("image_path")
         })
         
     if data_list:
         df = pd.DataFrame(data_list)
-        df['Date'] = pd.to_datetime(df['Date'])
+        # Convert Firebase datetime back to Pandas timestamp
+        df['Date'] = pd.to_datetime(df['Date'], utc=True).dt.tz_convert(None)
         return df
     else:
-        return pd.DataFrame(columns=["ID", "Date", "Category", "Item", "Amount", "Currency", "Original Amount", "Exchange Rate", "User", "image_path"])
+        return empty_df
 
 def save_data(df, trip_id):
-    """
-    Saves the DataFrame to DB for a specific trip.
-    We mirror the DF to the Database exactly.
-    """
-    if not trip_id:
-        return
-        
-    db = next(get_db())
-    # clear existing rows for trip
-    db.query(Expense).filter(Expense.trip_id == trip_id).delete(synchronize_session=False)
+    """Save DataFrame to Firestore."""
+    if not trip_id: return
+    db = get_db()
+    if not db: return
     
+    # 1. Clear existing for this trip
+    expenses_ref = db.collection('expenses')
+    docs = expenses_ref.where('trip_id', '==', trip_id).stream()
+    batch = db.batch()
+    for doc in docs:
+        batch.delete(doc.reference)
+    # Commit deletes
+    batch.commit()
+    
+    # 2. Insert new from DF
+    batch = db.batch()
+    count = 0
     for _, row in df.iterrows():
-        new_exp = Expense(
-            id=str(row['ID']),
-            trip_id=trip_id,
-            user=row.get('User', '알수없음'),
-            date=row['Date'],
-            category=row['Category'],
-            item=row['Item'],
-            amount=row['Amount'],
-            currency=row['Currency'],
-            original_amount=row['Original Amount'],
-            exchange_rate=row['Exchange Rate'],
-            image_path=str(row['image_path']) if 'image_path' in row and pd.notna(row['image_path']) else None
-        )
-        db.add(new_exp)
-    db.commit()
+        doc_id = str(row['ID'])
+        doc_ref = expenses_ref.document(doc_id)
+        
+        # Ensure primitive Python types for Firebase
+        dt = row['Date']
+        if isinstance(dt, pd.Timestamp):
+            dt = dt.to_pydatetime()
+            
+        data = {
+            "id": doc_id,
+            "trip_id": trip_id,
+            "user": str(row.get('User', '알수없음')),
+            "date": dt,
+            "category": str(row['Category']),
+            "item": str(row['Item']),
+            "amount": float(row['Amount']),
+            "currency": str(row['Currency']),
+            "original_amount": float(row['Original Amount']),
+            "exchange_rate": float(row['Exchange Rate']),
+            "image_path": str(row['image_path']) if 'image_path' in row and pd.notna(row['image_path']) else None
+        }
+        batch.set(doc_ref, data)
+        count += 1
+        
+        # Firestore batch limit is 500
+        if count == 400:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+            
+    if count > 0:
+        batch.commit()
 
 def calculate_metrics(df, total_budget):
-    """Calculates total spent and remaining budget."""
     if df.empty:
         return 0, total_budget
     total_spent = df["Amount"].sum()
@@ -229,9 +227,7 @@ def calculate_metrics(df, total_budget):
     return total_spent, remaining
 
 def get_exchange_rate(currency_code, target_date=None):
-    """Get exchange rate for currency_code to KRW."""
-    if currency_code == "KRW":
-        return 1.0
+    if currency_code == "KRW": return 1.0
     
     ticker_map = {
         "USD": "KRW=X",
@@ -240,8 +236,7 @@ def get_exchange_rate(currency_code, target_date=None):
     }
     
     ticker = ticker_map.get(currency_code)
-    if not ticker:
-        return 1.0
+    if not ticker: return 1.0
         
     try:
         if target_date:
@@ -252,49 +247,50 @@ def get_exchange_rate(currency_code, target_date=None):
             data = yf.download(ticker, period="1d", progress=False)
             
         if not data.empty:
-            rate = data['Close'].iloc[-1].item()
-            return rate
+            return float(data['Close'].iloc[-1].item())
         else:
              data = yf.download(ticker, period="5d", progress=False)
              if not data.empty:
-                 return data['Close'].iloc[-1].item()
+                 return float(data['Close'].iloc[-1].item())
              return 1.0
     except Exception as e:
         print(f"Error fetching rate: {e}")
         return 1.0
 
 def load_expense_requests():
-    """Load pending expense requests from DB as list of dicts."""
-    db = next(get_db())
-    reqs = db.query(ExpenseRequest).all()
+    """Load pending expense requests from Firestore."""
+    db = get_db()
+    if not db: return []
+    reqs_ref = db.collection('expense_requests')
+    docs = reqs_ref.stream()
     res = []
-    for r in reqs:
+    for doc in docs:
+        d = doc.to_dict()
         res.append({
-            "db_id": r.id,
-            "type": r.type,
-            "trip_id": r.trip_id,
-            "expense_id": r.expense_id,
-            "item_name": r.item_name,
-            "request_user": r.request_user,
-            "reason": r.reason,
-            "new_data": r.new_data
+            "type": d.get("type"),
+            "trip_id": d.get("trip_id"),
+            "expense_id": d.get("expense_id"),
+            "item_name": d.get("item_name"),
+            "request_user": d.get("request_user"),
+            "reason": d.get("reason"),
+            "new_data": d.get("new_data")
         })
     return res
 
 def save_expense_requests(requests_list):
-    """Sync list of dicts to DB requests."""
-    db = next(get_db())
-    # Easiest way to sync is to wipe and recreate
-    db.query(ExpenseRequest).delete(synchronize_session=False)
+    """Sync list to Firestore requests."""
+    db = get_db()
+    if not db: return
+    reqs_ref = db.collection('expense_requests')
+    
+    batch = db.batch()
+    docs = reqs_ref.stream()
+    for doc in docs:
+        batch.delete(doc.reference)
+    batch.commit()
+    
+    batch = db.batch()
     for r in requests_list:
-        new_req = ExpenseRequest(
-            type=r['type'],
-            trip_id=r['trip_id'],
-            expense_id=r['expense_id'],
-            item_name=r['item_name'],
-            request_user=r['request_user'],
-            reason=r.get('reason'),
-            new_data=r.get('new_data')
-        )
-        db.add(new_req)
-    db.commit()
+        doc_ref = reqs_ref.document(str(uuid.uuid4()))
+        batch.set(doc_ref, r)
+    batch.commit()

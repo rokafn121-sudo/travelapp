@@ -4,4 +4,4 @@ plotly
 yfinance
 extra-streamlit-components
 openpyxl
-SQLAlchemy
+firebase-admin
