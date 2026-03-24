@@ -153,6 +153,12 @@ st.markdown("""
         font-weight: 700 !important;
         letter-spacing: -0.03em;
         color: var(--text-main) !important;
+        word-break: keep-all; 
+    }
+    @media (max-width: 768px) {
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1.1rem !important; }
     }
     
     /* Expander Style */
@@ -285,7 +291,7 @@ def main_app():
             st.rerun()
     
     st.sidebar.markdown("---")
-    st.sidebar.caption("Designed with ❤️ by Antigravity AI")
+    st.sidebar.caption("Designed by 영현 ✨")
 
     # --- 메인 로직 ---
 
