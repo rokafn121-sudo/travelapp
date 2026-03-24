@@ -67,7 +67,19 @@ def verify_user(username, password):
     db = get_db()
     if not db: return None, "데이터베이스 연결 오류"
     
-    doc_ref = db.collection('users').document(username)
+    # 안전장치: DB가 아예 비어있어서 admin조차 생성되지 않았을 경우 자동 생성
+    users_ref = db.collection('users')
+    if username == "admin" and not users_ref.document("admin").get().exists:
+        # admin 강제 생성
+        admin_data = {
+            "password_hash": hash_password("0713"),
+            "role": "admin",
+            "approved": True,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        users_ref.document("admin").set(admin_data)
+
+    doc_ref = users_ref.document(username)
     doc = doc_ref.get()
     
     if not doc.exists:
