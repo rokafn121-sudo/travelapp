@@ -14,113 +14,121 @@ st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️"
 # Local or deployed relative path
 PROFILE_IMAGE_PATH = "profile.png"
 
-# CSS 스타일 적용 (Cute Theme & Jua Font)
+# CSS 스타일 적용 (Premium Blue Theme & Pretendard Font)
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
 
     /* Global Font */
     html, body, [class*="css"], .stApp {
-        font-family: 'Jua', sans-serif !important;
-        background-color: #f8f9fa !important;
-        color: #1f1f1f !important;
-        letter-spacing: 0.5px;
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif !important;
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
+        letter-spacing: -0.02em;
     }
 
-    /* 카드 및 컨테이너 라운딩 추가로 귀엽게 */
-    .stTextInput>div>div>input {
-        border-radius: 20px !important;
-    }
-    .stButton>button {
-        border-radius: 25px !important;
-        font-weight: 600 !important;
-    }
-
-    /* Primary Color: Ant Design Blue */
+    /* Primary Color & Theme variables */
     :root {
-        --primary-color: #1677ff;
-        --bg-color: #f5f5f5;
-        --card-bg: #ffffff;
+        --primary-color: #2563EB;
+        --primary-hover: #1D4ED8;
+        --bg-color: #F8FAFC;
+        --card-bg: #FFFFFF;
+        --text-main: #0F172A;
+        --text-sub: #64748B;
+        --border-color: #E2E8F0;
+    }
+
+    /* 카드 및 컨테이너 라운딩 */
+    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select, .stDateInput>div>div>input {
+        border-radius: 12px !important;
+        border: 1px solid var(--border-color) !important;
+        padding: 12px 14px !important;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    
+    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }
+
+    /* Buttons (Premium Style) */
+    .stButton>button {
+        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        color: white !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 14px 24px !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
+        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%) !important;
+    }
+    .stButton>button:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+    }
+    
+    /* Secondary Button (Outline) */
+    button[kind="secondary"] {
+        background: transparent !important;
+        color: var(--primary-color) !important;
+        border: 1.5px solid var(--primary-color) !important;
+        box-shadow: none !important;
+    }
+    button[kind="secondary"]:hover {
+        background: #EFF6FF !important;
+        box-shadow: none !important;
+        transform: translateY(-1px);
     }
 
     /* Override Streamlit Main Container Padding for Mobile */
     .block-container {
         padding-top: 2rem !important;
         padding-bottom: 5rem !important;
-        padding-left: 1rem !important;
-        padding-right: 1rem !important;
-        max-width: 800px; /* Maximize mobile view width on desktop */
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        max-width: 800px;
     }
 
     /* Metric Cards */
     .metric-card {
-        padding: 16px;
-        border-radius: 12px;
+        padding: 20px;
+        border-radius: 16px;
         background-color: var(--card-bg);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
         text-align: center;
-        margin-bottom: 12px;
+        margin-bottom: 16px;
+        border: 1px solid var(--border-color);
+        transition: transform 0.2s ease;
     }
-
-    /* Buttons (Ant Design Style) */
-    .stButton button {
-        background-color: var(--primary-color) !important;
-        color: white !important;
-        border-radius: 8px !important;
-        border: none !important;
-        padding: 12px 24px !important;
-        font-weight: 500 !important;
-        font-size: 16px !important;
-        width: 100%; /* Full width on mobile */
-        box-shadow: 0 2px 0 rgba(5, 145, 255, 0.1);
-        transition: all 0.3s;
-    }
-    .stButton button:hover {
-        background-color: #4096ff !important;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 10px rgba(5, 145, 255, 0.2);
-    }
-    .stButton button:active {
-        background-color: #0958d9 !important;
-    }
-    
-    /* Secondary Button (Outline) - using type="secondary" */
-    button[kind="secondary"] {
-        background-color: transparent !important;
-        color: var(--primary-color) !important;
-        border: 1px solid var(--primary-color) !important;
-        box-shadow: none !important;
-    }
-    button[kind="secondary"]:hover {
-        background-color: #e6f7ff !important;
-    }
-
-    /* Input Fields */
-    .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input {
-        border-radius: 8px !important;
-        border: 1px solid #d9d9d9 !important;
-        padding: 10px 12px !important;
-    }
-    .stTextInput input:focus, .stNumberInput input:focus {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 2px rgba(5, 145, 255, 0.1) !important;
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
     }
 
     /* Tabs */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        border-bottom: 1px solid #f0f0f0;
+        gap: 16px;
+        border-bottom: 2px solid var(--border-color);
     }
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        border-radius: 8px 8px 0 0;
-        padding: 0 24px;
-        font-weight: 500;
+        height: 54px;
+        padding: 0 16px;
+        font-weight: 600;
+        color: var(--text-sub) !important;
+        background-color: transparent !important;
+        border-radius: 0 !important;
     }
     .stTabs [aria-selected="true"] {
-        background-color: white !important;
         color: var(--primary-color) !important;
-        border-bottom: 2px solid var(--primary-color) !important;
+        border-bottom: 3px solid var(--primary-color) !important;
     }
 
     /* Hide Default Footer */
@@ -131,30 +139,63 @@ st.markdown("""
         display: block;
         margin-left: auto;
         margin-right: auto;
-        width: 120px;
-        height: 120px;
+        width: 130px;
+        height: 130px;
         border-radius: 50%;
         object-fit: cover;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-        border: 3px solid white;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        margin-bottom: 24px;
+        border: 4px solid white;
     }
     
     /* Mobile-first Headers */
     h1, h2, h3 {
-        font-weight: 600 !important;
-        letter-spacing: -0.5px;
+        font-weight: 700 !important;
+        letter-spacing: -0.03em;
+        color: var(--text-main) !important;
     }
     
     /* Expander Style */
     .streamlit-expanderHeader {
-        background-color: white;
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 8px;
-        border: 1px solid #f0f0f0;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        font-weight: 600;
     }
 
+    /* History List Items */
+    .history-item {
+        background: var(--card-bg);
+        padding: 16px;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+    .history-item:hover {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        border-color: #CBD5E1;
+    }
+    .trip-card {
+        background: var(--card-bg);
+        padding: 24px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+        border: 1px solid var(--border-color);
+        transition: transform 0.2s ease;
+    }
+    .trip-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -274,8 +315,8 @@ def main_app():
                     # Card-like container for each trip
                     with st.container():
                         st.markdown(f"""
-                        <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;">
-                            <h3 style="margin: 0 0 5px 0;">🏝 {name}</h3>
+                        <div class="trip-card">
+                            <h3 style="margin: 0 0 8px 0; color: #0F172A;">🏝 {name}</h3>
                             {date_str}
                         </div>
                         """, unsafe_allow_html=True)
@@ -541,14 +582,14 @@ def main_app():
                     
                     icon_has_img = "🖼️ " if ('image_path' in row and pd.notna(row['image_path']) and row['image_path']) else ""
                     st.markdown(f"""
-                    <div style="background: white; padding: 12px; border-radius: 12px; margin-bottom: 8px; border: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                    <div class="history-item">
                         <div>
-                            <div style="font-size: 16px; font-weight: 600;">{emoji} {icon_has_img}{row['Item']}</div>
-                            <div style="font-size: 12px; color: #888;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
+                            <div style="font-size: 16px; font-weight: 700; color: #0F172A;">{emoji} {icon_has_img}{row['Item']}</div>
+                            <div style="font-size: 13px; color: #64748B; margin-top: 4px;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 16px; font-weight: bold; color: #1f1f1f;">-{row['Amount']:,.0f} 원</div>
-                            <div style="font-size: 11px; color: #aaa;">{row['Original Amount']:,.2f} {row['Currency']}</div>
+                            <div style="font-size: 17px; font-weight: 800; color: #0F172A;">-{row['Amount']:,.0f} 원</div>
+                            <div style="font-size: 12px; color: #94A3B8; margin-top: 2px;">{row['Original Amount']:,.2f} {row['Currency']}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -613,7 +654,7 @@ def main_app():
         with tab_stats:
             if not st.session_state.df_expenses.empty:
                 fig = px.pie(st.session_state.df_expenses, values='Amount', names='Category', hole=0.6,
-                             color_discrete_sequence=px.colors.qualitative.Pastel)
+                             color_discrete_sequence=['#1E3A8A', '#1D4ED8', '#2563EB', '#3B82F6', '#60A5FA', '#93C5FD'])
                 fig.update_layout(showlegend=False, margin=dict(t=0, b=0, l=0, r=0), height=200)
                 st.plotly_chart(fig, use_container_width=True)
                 
@@ -626,7 +667,7 @@ def main_app():
                 df_daily = st.session_state.df_expenses.groupby(st.session_state.df_expenses['Date'].dt.date)['Amount'].sum().reset_index()
                 df_daily.columns = ['날짜', '지출액']
                 
-                fig_bar = px.bar(df_daily, x='날짜', y='지출액', text_auto='.2s', color_discrete_sequence=['#ff4d4f'])
+                fig_bar = px.bar(df_daily, x='날짜', y='지출액', text_auto='.2s', color_discrete_sequence=['#3B82F6'])
                 fig_bar.update_layout(
                     margin=dict(l=20, r=20, t=30, b=20),
                     paper_bgcolor="rgba(0,0,0,0)",
