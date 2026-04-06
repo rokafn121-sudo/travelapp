@@ -222,6 +222,13 @@ if st.session_state.get('dark_mode', False):
             --border-color: #334155;
         }
         h1, h2, h3 { color: #F8FAFC !important; }
+        label, label p, label span, div[data-testid="stMarkdownContainer"] p, .streamlit-expanderHeader {
+            color: #F8FAFC !important;
+        }
+        .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input, div[data-baseweb="select"] { 
+            color: #F8FAFC !important; 
+            background-color: var(--card-bg) !important; 
+        }
         .history-item:hover { border-color: #475569; }
         .trip-card, .metric-card, .history-item { 
             background: var(--card-bg) !important; 
