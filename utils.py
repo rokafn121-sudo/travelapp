@@ -306,3 +306,57 @@ def save_expense_requests(requests_list):
         doc_ref = reqs_ref.document(str(uuid.uuid4()))
         batch.set(doc_ref, r)
     batch.commit()
+
+# --- Itinerary (일정표) Functions ---
+
+def load_itineraries(trip_id):
+    """Load itinerary events for a trip from Firestore."""
+    if not trip_id: return []
+    db = get_db()
+    if not db: return []
+    
+    try:
+        events_ref = db.collection('itineraries').where('trip_id', '==', trip_id)
+        docs = events_ref.stream()
+        
+        events = []
+        for doc in docs:
+            d = doc.to_dict()
+            d['id'] = doc.id
+            events.append(d)
+            
+        return sorted(events, key=lambda x: (x.get('date', ''), x.get('time', '')))
+    except Exception as e:
+        print(f"Error loading itineraries: {e}")
+        return []
+
+def save_itinerary_event(trip_id, event_data):
+    """Save a single itinerary event to Firestore."""
+    if not trip_id: return
+    db = get_db()
+    if not db: return
+    
+    try:
+        # If event_data already has an id, use it, else generate one
+        event_id = event_data.get('id')
+        if not event_id:
+            import uuid
+            event_id = str(uuid.uuid4())
+            event_data['id'] = event_id
+        
+        event_data['trip_id'] = trip_id
+        db.collection('itineraries').document(event_id).set(event_data, merge=True)
+    except Exception as e:
+        print(f"Error saving itinerary: {e}")
+
+def delete_itinerary_event(event_id):
+    """Delete a single itinerary event."""
+    db = get_db()
+    if not db: return False
+    
+    try:
+        db.collection('itineraries').document(event_id).delete()
+        return True
+    except Exception as e:
+        print(f"Error deleting itinerary: {e}")
+        return False

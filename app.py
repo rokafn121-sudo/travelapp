@@ -2,10 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import extra_streamlit_components as stx
-from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests
+from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests, load_itineraries, save_itinerary_event, delete_itinerary_event
 from datetime import datetime
+import time
 import uuid
 import os
+import requests
+import re
 
 # 페이지 설정
 st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️", layout="wide")
@@ -13,197 +16,6 @@ st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️"
 # Image Paths
 # Local or deployed relative path
 PROFILE_IMAGE_PATH = "profile.png"
-
-# CSS 스타일 적용 (Premium Blue Theme & Pretendard Font)
-st.markdown("""
-    <style>
-    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-
-    /* Global Font */
-    html, body, [class*="css"], .stApp {
-        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif !important;
-        background-color: #F8FAFC !important;
-        color: #0F172A !important;
-        letter-spacing: -0.02em;
-    }
-
-    /* Primary Color & Theme variables */
-    :root {
-        --primary-color: #2563EB;
-        --primary-hover: #1D4ED8;
-        --bg-color: #F8FAFC;
-        --card-bg: #FFFFFF;
-        --text-main: #0F172A;
-        --text-sub: #64748B;
-        --border-color: #E2E8F0;
-    }
-
-    /* 카드 및 컨테이너 라운딩 */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select, .stDateInput>div>div>input {
-        border-radius: 12px !important;
-        border: 1px solid var(--border-color) !important;
-        padding: 12px 14px !important;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-    
-    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-    }
-
-    /* Buttons (Premium Style) */
-    .stButton>button {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
-        color: white !important;
-        border-radius: 12px !important;
-        border: none !important;
-        padding: 14px 24px !important;
-        font-weight: 600 !important;
-        font-size: 16px !important;
-        width: 100%;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
-        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%) !important;
-    }
-    .stButton>button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
-    }
-    
-    /* Secondary Button (Outline) */
-    button[kind="secondary"] {
-        background: transparent !important;
-        color: var(--primary-color) !important;
-        border: 1.5px solid var(--primary-color) !important;
-        box-shadow: none !important;
-    }
-    button[kind="secondary"]:hover {
-        background: #EFF6FF !important;
-        box-shadow: none !important;
-        transform: translateY(-1px);
-    }
-
-    /* Override Streamlit Main Container Padding for Mobile */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 5rem !important;
-        padding-left: 1.25rem !important;
-        padding-right: 1.25rem !important;
-        max-width: 800px;
-    }
-
-    /* Metric Cards */
-    .metric-card {
-        padding: 20px;
-        border-radius: 16px;
-        background-color: var(--card-bg);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-        text-align: center;
-        margin-bottom: 16px;
-        border: 1px solid var(--border-color);
-        transition: transform 0.2s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-    }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 16px;
-        border-bottom: 2px solid var(--border-color);
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 54px;
-        padding: 0 16px;
-        font-weight: 600;
-        color: var(--text-sub) !important;
-        background-color: transparent !important;
-        border-radius: 0 !important;
-    }
-    .stTabs [aria-selected="true"] {
-        color: var(--primary-color) !important;
-        border-bottom: 3px solid var(--primary-color) !important;
-    }
-
-    /* Hide Default Footer */
-    footer {visibility: hidden;}
-    
-    /* Custom Profile Image Style */
-    .profile-img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 130px;
-        height: 130px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-        margin-bottom: 24px;
-        border: 4px solid white;
-    }
-    
-    /* Mobile-first Headers */
-    h1, h2, h3 {
-        font-weight: 700 !important;
-        letter-spacing: -0.03em;
-        color: var(--text-main) !important;
-        word-break: keep-all; 
-    }
-    @media (max-width: 768px) {
-        h1 { font-size: 1.4rem !important; }
-        h2 { font-size: 1.2rem !important; }
-        h3 { font-size: 1.1rem !important; }
-    }
-    
-    /* Expander Style */
-    .streamlit-expanderHeader {
-        background-color: var(--card-bg);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-        font-weight: 600;
-    }
-
-    /* History List Items */
-    .history-item {
-        background: var(--card-bg);
-        padding: 16px;
-        border-radius: 16px;
-        margin-bottom: 12px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 12px rgba(0,0,0,0.02);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: all 0.2s ease;
-    }
-    .history-item:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-        border-color: #CBD5E1;
-    }
-    .trip-card {
-        background: var(--card-bg);
-        padding: 24px;
-        border-radius: 16px;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-        border: 1px solid var(--border-color);
-        transition: transform 0.2s ease;
-    }
-    .trip-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-    }
-    </style>
-    """, unsafe_allow_html=True)
 
 # 초기화
 if 'folders' not in st.session_state:
@@ -214,6 +26,256 @@ if 'current_trip_id' not in st.session_state:
 
 if 'df_expenses' not in st.session_state:
     st.session_state.df_expenses = pd.DataFrame()
+
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+# CSS 스타일 적용 (Premium Blue Theme & Pretendard Font)
+is_dark = st.session_state.get('dark_mode', False)
+
+if is_dark:
+    theme_css = """
+    :root {
+        --bg-color: #0f172a;
+        --sidebar-bg: #1e293b;
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --text-main: #f8fafc;
+        --text-sub: #94a3b8;
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --input-bg: #0f172a;
+        --danger: #ef4444;
+        --success: #10b981;
+    }
+    """
+else:
+    theme_css = """
+    :root {
+        --bg-color: #f8fafc;
+        --sidebar-bg: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text-main: #0f172a;
+        --text-sub: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --input-bg: #ffffff;
+        --danger: #ef4444;
+        --success: #10b981;
+    }
+    """
+
+st.markdown(f"""
+    <style>
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+    
+    {theme_css}
+    
+    /* Global Font & Base */
+    html, body, [class*="css"], .stApp {{
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        background-color: var(--bg-color) !important;
+        color: var(--text-main) !important;
+        letter-spacing: -0.02em;
+    }}
+    
+    /* Typography Overrides (Safer) */
+    h1, h2, h3, h4, h5, h6, p, label, .streamlit-expanderHeader, div[data-testid="stMarkdownContainer"] > p {{
+        color: var(--text-main) !important;
+    }}
+    
+    /* Sidebar */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child, section[data-testid="stSidebar"] {{
+        background-color: var(--sidebar-bg) !important;
+        border-right: 1px solid var(--card-border) !important;
+    }}
+    
+    /* Inputs & Forms - Text Inputs */
+    .stTextInput input, .stNumberInput input, .stDateInput input {{
+        background-color: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        padding: 10px 14px !important;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }}
+    
+    /* Selectbox specific tweaks */
+    div[data-baseweb="select"] > div {{
+        background-color: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        transition: all 0.2s ease;
+    }}
+    
+    /* Selectbox Inner Text Display Fix */
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {{
+        color: var(--text-main) !important;
+    }}
+    
+    /* Selectbox Dropdown Fix */
+    [data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {{
+        background-color: var(--card-bg) !important;
+    }}
+    li[role="option"] {{
+        background-color: transparent !important;
+        color: var(--text-main) !important;
+    }}
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {{
+        background-color: var(--primary) !important;
+        color: white !important;
+    }}
+    
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, div[data-baseweb="select"]:focus-within {{
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }}
+    
+    /* Buttons (Premium Style) */
+    .stButton>button {{
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 14px 24px !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }}
+    .stButton>button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
+    }}
+    .stButton>button:active {{
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+    }}
+    
+    /* Secondary Button (Outline) */
+    button[kind="secondary"] {{
+        background: transparent !important;
+        color: var(--primary) !important;
+        border: 1.5px solid var(--primary) !important;
+        box-shadow: none !important;
+    }}
+    button[kind="secondary"]:hover {{
+        background: var(--sidebar-bg) !important;
+        box-shadow: none !important;
+        transform: translateY(-1px);
+    }}
+    
+    /* Override Streamlit Main Container Padding for Mobile */
+    .block-container {{
+        padding-top: 2rem !important;
+        padding-bottom: 5rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        max-width: 800px;
+    }}
+    
+    /* Premium Cards */
+    .metric-card, .trip-card, .streamlit-expanderHeader, [data-testid="stExpanderDetails"] {{
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s ease;
+    }}
+    .streamlit-expanderHeader {{
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        font-weight: 600;
+    }}
+    [data-testid="stExpanderDetails"] {{
+        border-top: none !important;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }}
+    .metric-card {{
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 16px;
+    }}
+    .trip-card {{ margin-bottom: 16px; padding: 24px; }}
+    
+    .metric-card:hover, .trip-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        border-color: var(--primary) !important;
+    }}
+    
+    /* History List Items */
+    .history-item {{
+        background: var(--card-bg) !important;
+        padding: 16px;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        border: 1px solid var(--card-border) !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }}
+    .history-item:hover {{
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        border-color: var(--primary) !important;
+    }}
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 16px;
+        border-bottom: 2px solid var(--card-border);
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        height: 54px;
+        padding: 0 16px;
+        font-weight: 600;
+        color: var(--text-sub) !important;
+        background-color: transparent !important;
+        border-radius: 0 !important;
+    }}
+    .stTabs [aria-selected="true"] {{
+        color: var(--primary) !important;
+        border-bottom: 3px solid var(--primary) !important;
+    }}
+    
+    /* Hide Default Footer */
+    footer {{visibility: hidden;}}
+    
+    /* Custom Profile Image Style */
+    .profile-img {{
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        margin-bottom: 24px;
+        border: 4px solid var(--card-bg);
+    }}
+    
+    /* Mobile-first Headers */
+    h1, h2, h3 {{
+        font-weight: 700 !important;
+        letter-spacing: -0.03em;
+        word-break: keep-all; 
+    }}
+    @media (max-width: 768px) {{
+        h1 {{ font-size: 1.4rem !important; }}
+        h2 {{ font-size: 1.2rem !important; }}
+        h3 {{ font-size: 1.1rem !important; }}
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
 # 세션 상태: 사용자 인증
 if 'user_session' not in st.session_state:
@@ -252,6 +314,18 @@ if st.session_state.user_session is None:
                 st.session_state.user_session = {"username": saved_user, "role": saved_role}
                 st.rerun()
 
+@st.cache_data(ttl=3600)
+def get_auto_currency():
+    try:
+        res = requests.get('http://ip-api.com/json/', timeout=3).json()
+        cc = res.get("countryCode", "KR")
+        if cc == "US": return 1 # USD
+        elif cc in ["FR", "DE", "IT", "ES", "NL", "BE", "AT", "IE", "FI", "PT"]: return 2 # EUR
+        elif cc == "JP": return 3 # JPY
+        return 0 # KRW
+    except:
+        return 0
+
 # --- 메인 앱 로직 (로그인 후 실행됨) ---
 def main_app():
     user = st.session_state.user_session
@@ -276,6 +350,14 @@ def main_app():
         st.session_state.explicit_logout = True
         st.rerun()
 
+    st.sidebar.markdown("---")
+    
+    # 북마크/다크 모드 설정
+    dark_toggle = st.sidebar.toggle("🌙 다크 모드", value=st.session_state.dark_mode)
+    if dark_toggle != st.session_state.dark_mode:
+        st.session_state.dark_mode = dark_toggle
+        st.rerun()
+    
     st.sidebar.markdown("---")
     
     if st.session_state.current_trip_id:
@@ -316,13 +398,13 @@ def main_app():
                     trip_info = st.session_state.folders[tid]
                     date_str = ""
                     if "start_date" in trip_info and "end_date" in trip_info:
-                        date_str = f"<p style='margin: 0; font-size: 13px; color: #888;'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
+                        date_str = f"<p style='margin: 0; font-size: 13px; color: var(--text-sub);'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
 
                     # Card-like container for each trip
                     with st.container():
                         st.markdown(f"""
                         <div class="trip-card">
-                            <h3 style="margin: 0 0 8px 0; color: #0F172A;">🏝 {name}</h3>
+                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">🏝 {name}</h3>
                             {date_str}
                         </div>
                         """, unsafe_allow_html=True)
@@ -486,21 +568,49 @@ def main_app():
         with m1:
             st.markdown(f"""
             <div class="metric-card">
-                <div style="font-size: 12px; color: #888;">지출 (Spent)</div>
+                <div style="font-size: 12px; color: var(--text-sub);">지출 (Spent)</div>
                 <div style="font-size: 20px; font-weight: bold; color: #ff4d4f;">{total_spent:,.0f}</div>
-                <div style="font-size: 10px; color: #888;">{total_spent/budget*100:.1f}%</div>
+                <div style="font-size: 10px; color: var(--text-sub);">{total_spent/budget*100:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
         with m2:
             st.markdown(f"""
             <div class="metric-card">
-                <div style="font-size: 12px; color: #888;">잔액 (Left)</div>
+                <div style="font-size: 12px; color: var(--text-sub);">잔액 (Left)</div>
                 <div style="font-size: 20px; font-weight: bold; color: {'#52c41a' if remaining > 0 else '#ff4d4f'};">{remaining:,.0f}</div>
-                 <div style="font-size: 10px; color: #888;">{remaining/budget*100:.1f}%</div>
+                 <div style="font-size: 10px; color: var(--text-sub);">{remaining/budget*100:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
         st.progress(min(total_spent / budget if budget > 0 else 0, 1.0))
+
+        # ⚡ 빠른 지출 추가 (Quick Add)
+        with st.expander("⚡ 빠른 지출 추가 (Quick Add)", expanded=False):
+            with st.form("quick_add_form", clear_on_submit=True):
+                q_col1, q_col2 = st.columns(2)
+                with q_col1:
+                    qa_amount = st.number_input("지불한 결제금액 (KRW 환산)", min_value=0.0, step=1000.0)
+                with q_col2:
+                    qa_item = st.text_input("간단한 지출 내용")
+                
+                if st.form_submit_button("🚀 간편 등록") and qa_item and qa_amount > 0:
+                    exp_id = str(uuid.uuid4())
+                    new_data = pd.DataFrame({
+                        "ID": [exp_id],
+                        "Date": [pd.to_datetime(datetime.now().strftime("%Y-%m-%d"))],
+                        "Category": ["기타 (Others)"],
+                        "Item": [qa_item],
+                        "Amount": [qa_amount],
+                        "Currency": ["KRW"],
+                        "Original Amount": [qa_amount],
+                        "Exchange Rate": [1.0],
+                        "User": [username],
+                        "image_path": [None]
+                    })
+                    st.session_state.df_expenses = pd.concat([st.session_state.df_expenses, new_data], ignore_index=True)
+                    save_data(st.session_state.df_expenses, trip_id)
+                    st.success("간편 등록이 완료되었습니다!")
+                    import time; time.sleep(0.5); st.rerun()
 
         # Main Actions
         # Category Alerts
@@ -511,7 +621,7 @@ def main_app():
                 if cat in cat_totals and cat_totals[cat] > limit:
                     st.error(f"⚠️ **예산 초과 경고:** '{cat}' 카테고리 지출({cat_totals[cat]:,.0f}원)이 설정된 예산({limit:,.0f}원)을 초과했습니다!")
 
-        tab_add, tab_history, tab_stats = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계"])
+        tab_add, tab_history, tab_stats, tab_itinerary = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"])
 
         with tab_add:
             with st.container():
@@ -520,7 +630,7 @@ def main_app():
                 with col_date:
                     date = st.date_input("날짜", datetime.now(), label_visibility="collapsed")
                 with col_curr:
-                    currency = st.selectbox("통화", ["KRW", "USD", "EUR", "JPY"], label_visibility="collapsed")
+                    currency = st.selectbox("통화", ["KRW", "USD", "EUR", "JPY"], index=get_auto_currency(), label_visibility="collapsed")
                 
                 # Fetch rate quietly
                 current_rate = get_exchange_rate(currency, date)
@@ -528,14 +638,14 @@ def main_app():
                 category = st.selectbox("카테고리", ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"])
                 item = st.text_input("무엇을 샀나요?", placeholder="예: 맛있는 라멘")
                 
+                # Photo upload
+                receipt_image = st.file_uploader("영수증 / 지출 사진 첨부 📸", type=["jpg", "jpeg", "png"])
+
                 c1, c2 = st.columns(2)
                 with c1:
                     amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, format="%.2f")
                 with c2:
                     manual_rate = st.number_input("환율", value=float(current_rate), format="%.2f")
-                
-                # Photo upload
-                receipt_image = st.file_uploader("영수증 / 지출 사진 첨부 📸", type=["jpg", "jpeg", "png"])
 
                 if st.button("저장하기 (Save)", use_container_width=True):
                     final_krw = amount_origin * manual_rate
@@ -590,12 +700,12 @@ def main_app():
                     st.markdown(f"""
                     <div class="history-item">
                         <div>
-                            <div style="font-size: 16px; font-weight: 700; color: #0F172A;">{emoji} {icon_has_img}{row['Item']}</div>
-                            <div style="font-size: 13px; color: #64748B; margin-top: 4px;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
+                            <div style="font-size: 16px; font-weight: 700; color: var(--text-main);">{emoji} {icon_has_img}{row['Item']}</div>
+                            <div style="font-size: 13px; color: var(--text-sub); margin-top: 4px;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 17px; font-weight: 800; color: #0F172A;">-{row['Amount']:,.0f} 원</div>
-                            <div style="font-size: 12px; color: #94A3B8; margin-top: 2px;">{row['Original Amount']:,.2f} {row['Currency']}</div>
+                            <div style="font-size: 17px; font-weight: 800; color: var(--text-main);">-{row['Amount']:,.0f} 원</div>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 2px;">{row['Original Amount']:,.2f} {row['Currency']}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -608,7 +718,7 @@ def main_app():
                             else:
                                 st.warning("이미지 파일을 찾을 수 없습니다.")
 
-                    with st.expander("세부 관리 (수정/삭제)"):
+                    with st.expander("👉 밀어서 메뉴 보기 (수정/삭제)"):
                         if role == 'admin':
                             c_amt, c_del = st.columns([3, 1])
                             with c_amt:
@@ -669,20 +779,6 @@ def main_app():
                 for cat, val in usage.items():
                     st.caption(f"{cat}: {val:,.0f} KRW ({val/total_spent*100:.1f}%)")
 
-                st.markdown("### 🗓️ 일자별 예산 소진 차트 (Daily Burn Rate)")
-                df_daily = st.session_state.df_expenses.groupby(st.session_state.df_expenses['Date'].dt.date)['Amount'].sum().reset_index()
-                df_daily.columns = ['날짜', '지출액']
-                
-                fig_bar = px.bar(df_daily, x='날짜', y='지출액', text_auto='.2s', color_discrete_sequence=['#3B82F6'])
-                fig_bar.update_layout(
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    xaxis_title=None,
-                    yaxis_title=None
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-                
                 # Excel Export Button
                 st.divider()
                 st.markdown("### 📥 여행 데이터 내보내기")
@@ -706,6 +802,85 @@ def main_app():
             else:
                 st.text("통계를 보려면 지출을 입력하세요.")
 
+        with tab_itinerary:
+            st.markdown("### 📅 여행 일정 관리")
+            st.caption("시간대별 일정을 추가하고 확인하세요. 🕒")
+            
+            # --- 일정 추가 폼 ---
+            with st.expander("➕ 새 일정 추가하기", expanded=False):
+                with st.form("add_itinerary_form", clear_on_submit=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        try:
+                            t_start = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
+                            t_end = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
+                        except:
+                            t_start = datetime.now().date()
+                            t_end = datetime.now().date()
+                        
+                        i_date = st.date_input("날짜", value=t_start, min_value=t_start, max_value=t_end)
+                        i_time = st.time_input("시간 (선택)")
+                    with col2:
+                        i_title = st.text_input("일정 제목 *", placeholder="예: 공항 도착 및 렌트카 픽업")
+                        i_loc = st.text_input("장소", placeholder="지명, 주소, 또는 구글맵 링크")
+                    
+                    i_memo = st.text_area("메모", placeholder="필요한 메모 (예: 탑승권 챙기기, 바우처 확인 등)")
+                    
+                    if st.form_submit_button("일정 저장하기", use_container_width=True):
+                        if not i_title:
+                            st.error("일정 제목은 필수입니다!")
+                        else:
+                            evt_data = {
+                                "date": i_date.strftime("%Y-%m-%d"),
+                                "time": i_time.strftime("%H:%M") if i_time else "",
+                                "title": i_title,
+                                "location": i_loc,
+                                "memo": i_memo
+                            }
+                            save_itinerary_event(trip_id, evt_data)
+                            st.success("✅ 일정이 성공적으로 추가되었습니다!")
+                            time.sleep(0.5)
+                            st.rerun()
+
+            # --- 타임라인 뷰 ---
+            st.markdown("#### ⏳ 나의 타임라인")
+            events = load_itineraries(trip_id)
+            
+            if not events:
+                st.info("아직 등록된 일정이 없습니다. 새 일정을 추가해보세요! 🚀")
+            else:
+                # Group by date
+                from collections import defaultdict
+                itinerary_grouped = defaultdict(list)
+                for ev in events:
+                    itinerary_grouped[ev['date']].append(ev)
+                
+                for d_key in sorted(itinerary_grouped.keys()):
+                    st.markdown(f"**🚩 {d_key}**")
+                    day_events = itinerary_grouped[d_key]
+                    
+                    for ev in day_events:
+                        with st.container():
+                            col_info, col_del = st.columns([85, 15])
+                            with col_info:
+                                st.markdown(f"""
+                                <div style="background-color: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+                                    <h5 style="margin:0; color:var(--text-main); font-weight: 700;">
+                                        <span style="color:var(--primary); margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
+                                    </h5>
+                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev["location"]}</p>' if ev.get('location') else ''}
+                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev["memo"]}</p>' if ev.get('memo') else ''}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            with col_del:
+                                st.markdown("<br>", unsafe_allow_html=True) # 알맞은 정렬을 위해 띄어쓰기
+                                if st.button("삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
+                                    delete_itinerary_event(ev['id'])
+                                    time.sleep(0.3)
+                                    st.rerun()
+                            
+                            st.write("") # card bottom margin
+
 
 # --- 로그인 / 회원가입 화면 (Center Layout) ---
 if st.session_state.user_session is None:
@@ -725,7 +900,7 @@ if st.session_state.user_session is None:
                     <img src="data:image/png;base64,{data}" class="profile-img">
                     <div style="text-align: center; margin-bottom: 30px;">
                         <h2 style="margin: 0; color: #ff85c0; font-family: 'Jua', sans-serif;">✈️ 영늘 트립 트래커 ✈️</h2>
-                        <p style="color: #888; font-size: 1.1em;">당신의 완벽한 여행을 위하여 💖</p>
+                        <p style="color: var(--text-sub); font-size: 1.1em;">당신의 완벽한 여행을 위하여 💖</p>
                     </div>
                 """, unsafe_allow_html=True)
             else:
