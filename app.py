@@ -16,230 +16,6 @@ st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️"
 # Local or deployed relative path
 PROFILE_IMAGE_PATH = "profile.png"
 
-# CSS 스타일 적용 (Premium Blue Theme & Pretendard Font)
-st.markdown("""
-    <style>
-    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
-
-    /* Global Font */
-    html, body, [class*="css"], .stApp {
-        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif !important;
-        background-color: #F8FAFC !important;
-        color: #0F172A !important;
-        letter-spacing: -0.02em;
-    }
-
-    /* Primary Color & Theme variables */
-    :root {
-        --primary-color: #2563EB;
-        --primary-hover: #1D4ED8;
-        --bg-color: #F8FAFC;
-        --card-bg: #FFFFFF;
-        --text-main: #0F172A;
-        --text-sub: #64748B;
-        --border-color: #E2E8F0;
-    }
-
-    /* 카드 및 컨테이너 라운딩 */
-    .stTextInput>div>div>input, .stNumberInput>div>div>input, .stSelectbox>div>div>select, .stDateInput>div>div>input {
-        border-radius: 12px !important;
-        border: 1px solid var(--border-color) !important;
-        padding: 12px 14px !important;
-        font-weight: 500;
-        transition: all 0.2s ease;
-    }
-    
-    .stTextInput>div>div>input:focus, .stNumberInput>div>div>input:focus {
-        border-color: var(--primary-color) !important;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-    }
-
-    /* Buttons (Premium Style) */
-    .stButton>button {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
-        color: white !important;
-        border-radius: 12px !important;
-        border: none !important;
-        padding: 14px 24px !important;
-        font-weight: 600 !important;
-        font-size: 16px !important;
-        width: 100%;
-        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
-        background: linear-gradient(135deg, #60A5FA 0%, #3B82F6 100%) !important;
-    }
-    .stButton>button:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
-    }
-    
-    /* Secondary Button (Outline) */
-    button[kind="secondary"] {
-        background: transparent !important;
-        color: var(--primary-color) !important;
-        border: 1.5px solid var(--primary-color) !important;
-        box-shadow: none !important;
-    }
-    button[kind="secondary"]:hover {
-        background: #EFF6FF !important;
-        box-shadow: none !important;
-        transform: translateY(-1px);
-    }
-
-    /* Override Streamlit Main Container Padding for Mobile */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 5rem !important;
-        padding-left: 1.25rem !important;
-        padding-right: 1.25rem !important;
-        max-width: 800px;
-    }
-
-    /* Metric Cards */
-    .metric-card {
-        padding: 20px;
-        border-radius: 16px;
-        background-color: var(--card-bg);
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-        text-align: center;
-        margin-bottom: 16px;
-        border: 1px solid var(--border-color);
-        transition: transform 0.2s ease;
-    }
-    .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
-    }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 16px;
-        border-bottom: 2px solid var(--border-color);
-    }
-    .stTabs [data-baseweb="tab"] {
-        height: 54px;
-        padding: 0 16px;
-        font-weight: 600;
-        color: var(--text-sub) !important;
-        background-color: transparent !important;
-        border-radius: 0 !important;
-    }
-    .stTabs [aria-selected="true"] {
-        color: var(--primary-color) !important;
-        border-bottom: 3px solid var(--primary-color) !important;
-    }
-
-    /* Hide Default Footer */
-    footer {visibility: hidden;}
-    
-    /* Custom Profile Image Style */
-    .profile-img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-        width: 130px;
-        height: 130px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-        margin-bottom: 24px;
-        border: 4px solid white;
-    }
-    
-    /* Mobile-first Headers */
-    h1, h2, h3 {
-        font-weight: 700 !important;
-        letter-spacing: -0.03em;
-        color: var(--text-main) !important;
-        word-break: keep-all; 
-    }
-    @media (max-width: 768px) {
-        h1 { font-size: 1.4rem !important; }
-        h2 { font-size: 1.2rem !important; }
-        h3 { font-size: 1.1rem !important; }
-    }
-    
-    /* Expander Style */
-    .streamlit-expanderHeader {
-        background-color: var(--card-bg);
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 12px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-        font-weight: 600;
-    }
-
-    /* History List Items */
-    .history-item {
-        background: var(--card-bg);
-        padding: 16px;
-        border-radius: 16px;
-        margin-bottom: 12px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 2px 12px rgba(0,0,0,0.02);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: all 0.2s ease;
-    }
-    .history-item:hover {
-        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
-        border-color: #CBD5E1;
-    }
-    .trip-card {
-        background: var(--card-bg);
-        padding: 24px;
-        border-radius: 16px;
-        margin-bottom: 16px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-        border: 1px solid var(--border-color);
-        transition: transform 0.2s ease;
-    }
-    .trip-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-if st.session_state.get('dark_mode', False):
-    st.markdown("""
-        <style>
-        html, body, [class*="css"], .stApp {
-            background-color: #0F172A !important;
-            color: #F8FAFC !important;
-        }
-        :root {
-            --bg-color: #0F172A;
-            --card-bg: #1E293B;
-            --text-main: #F8FAFC;
-            --text-sub: #94A3B8;
-            --border-color: #334155;
-        }
-        h1, h2, h3 { color: #F8FAFC !important; }
-        label, label p, label span, div[data-testid="stMarkdownContainer"] p, .streamlit-expanderHeader {
-            color: #F8FAFC !important;
-        }
-        .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input, div[data-baseweb="select"] { 
-            color: #F8FAFC !important; 
-            background-color: var(--card-bg) !important; 
-        }
-        .history-item:hover { border-color: #475569; }
-        .trip-card, .metric-card, .history-item { 
-            background: var(--card-bg) !important; 
-            border-color: var(--border-color) !important;
-        }
-        [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child, section[data-testid="stSidebar"], [data-testid="stExpanderDetails"] {
-            background-color: #1E293B !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-
 # 초기화
 if 'folders' not in st.session_state:
     st.session_state.folders = load_folders()
@@ -252,6 +28,226 @@ if 'df_expenses' not in st.session_state:
 
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
+
+# CSS 스타일 적용 (Premium Blue Theme & Pretendard Font)
+is_dark = st.session_state.get('dark_mode', False)
+
+if is_dark:
+    theme_css = """
+    :root {
+        --bg-color: #0f172a;
+        --sidebar-bg: #1e293b;
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --text-main: #f8fafc;
+        --text-sub: #94a3b8;
+        --primary: #3b82f6;
+        --primary-hover: #60a5fa;
+        --input-bg: #0f172a;
+        --danger: #ef4444;
+        --success: #10b981;
+    }
+    """
+else:
+    theme_css = """
+    :root {
+        --bg-color: #f8fafc;
+        --sidebar-bg: #f1f5f9;
+        --card-bg: #ffffff;
+        --card-border: #e2e8f0;
+        --text-main: #0f172a;
+        --text-sub: #64748b;
+        --primary: #2563eb;
+        --primary-hover: #1d4ed8;
+        --input-bg: #ffffff;
+        --danger: #ef4444;
+        --success: #10b981;
+    }
+    """
+
+st.markdown(f"""
+    <style>
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+    
+    {theme_css}
+    
+    /* Global Font & Base */
+    html, body, [class*="css"], .stApp {{
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        background-color: var(--bg-color) !important;
+        color: var(--text-main) !important;
+        letter-spacing: -0.02em;
+    }}
+    
+    /* Typography */
+    h1, h2, h3, h4, h5, h6, p, span, div, label, .streamlit-expanderHeader {{
+        color: var(--text-main) !important;
+    }}
+    
+    /* Sidebar */
+    [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child, section[data-testid="stSidebar"] {{
+        background-color: var(--sidebar-bg) !important;
+        border-right: 1px solid var(--card-border) !important;
+    }}
+    
+    /* Inputs & Forms */
+    .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input, div[data-baseweb="select"] > div {{
+        background-color: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        padding: 10px 14px !important;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }}
+    
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, div[data-baseweb="select"]:focus-within {{
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+    }}
+    
+    /* Buttons (Premium Style) */
+    .stButton>button {{
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 14px 24px !important;
+        font-weight: 600 !important;
+        font-size: 16px !important;
+        width: 100%;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }}
+    .stButton>button:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3) !important;
+    }}
+    .stButton>button:active {{
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2) !important;
+    }}
+    
+    /* Secondary Button (Outline) */
+    button[kind="secondary"] {{
+        background: transparent !important;
+        color: var(--primary) !important;
+        border: 1.5px solid var(--primary) !important;
+        box-shadow: none !important;
+    }}
+    button[kind="secondary"]:hover {{
+        background: var(--sidebar-bg) !important;
+        box-shadow: none !important;
+        transform: translateY(-1px);
+    }}
+    
+    /* Override Streamlit Main Container Padding for Mobile */
+    .block-container {{
+        padding-top: 2rem !important;
+        padding-bottom: 5rem !important;
+        padding-left: 1.25rem !important;
+        padding-right: 1.25rem !important;
+        max-width: 800px;
+    }}
+    
+    /* Premium Cards */
+    .metric-card, .trip-card, .streamlit-expanderHeader, [data-testid="stExpanderDetails"] {{
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        transition: all 0.3s ease;
+    }}
+    .streamlit-expanderHeader {{
+        padding: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        font-weight: 600;
+    }}
+    [data-testid="stExpanderDetails"] {{
+        border-top: none !important;
+        border-top-left-radius: 0;
+        border-top-right-radius: 0;
+    }}
+    .metric-card {{
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 16px;
+    }}
+    .trip-card {{ margin-bottom: 16px; padding: 24px; }}
+    
+    .metric-card:hover, .trip-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        border-color: var(--primary) !important;
+    }}
+    
+    /* History List Items */
+    .history-item {{
+        background: var(--card-bg) !important;
+        padding: 16px;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        border: 1px solid var(--card-border) !important;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.02);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }}
+    .history-item:hover {{
+        box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+        border-color: var(--primary) !important;
+    }}
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {{
+        gap: 16px;
+        border-bottom: 2px solid var(--card-border);
+    }}
+    .stTabs [data-baseweb="tab"] {{
+        height: 54px;
+        padding: 0 16px;
+        font-weight: 600;
+        color: var(--text-sub) !important;
+        background-color: transparent !important;
+        border-radius: 0 !important;
+    }}
+    .stTabs [aria-selected="true"] {{
+        color: var(--primary) !important;
+        border-bottom: 3px solid var(--primary) !important;
+    }}
+    
+    /* Hide Default Footer */
+    footer {{visibility: hidden;}}
+    
+    /* Custom Profile Image Style */
+    .profile-img {{
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 130px;
+        height: 130px;
+        border-radius: 50%;
+        object-fit: cover;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        margin-bottom: 24px;
+        border: 4px solid var(--card-bg);
+    }}
+    
+    /* Mobile-first Headers */
+    h1, h2, h3 {{
+        font-weight: 700 !important;
+        letter-spacing: -0.03em;
+        word-break: keep-all; 
+    }}
+    @media (max-width: 768px) {{
+        h1 {{ font-size: 1.4rem !important; }}
+        h2 {{ font-size: 1.2rem !important; }}
+        h3 {{ font-size: 1.1rem !important; }}
+    }}
+    </style>
+""", unsafe_allow_html=True)
 
 # 세션 상태: 사용자 인증
 if 'user_session' not in st.session_state:
