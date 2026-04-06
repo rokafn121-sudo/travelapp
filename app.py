@@ -824,7 +824,6 @@ def main_app():
                             except ValueError:
                                 ts = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
                                 te = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
-                            import pandas as pd
                             t_start = ts - pd.Timedelta(days=1)
                             t_end = te + pd.Timedelta(days=1)
                         except Exception:
