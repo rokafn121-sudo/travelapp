@@ -234,6 +234,9 @@ if st.session_state.get('dark_mode', False):
             background: var(--card-bg) !important; 
             border-color: var(--border-color) !important;
         }
+        [data-testid="stSidebar"], [data-testid="stSidebar"] > div:first-child, section[data-testid="stSidebar"], [data-testid="stExpanderDetails"] {
+            background-color: #1E293B !important;
+        }
         </style>
     """, unsafe_allow_html=True)
 
