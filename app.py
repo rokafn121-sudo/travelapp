@@ -370,7 +370,7 @@ def main_app():
     if st.session_state.current_trip_id:
         current_trip = st.session_state.folders.get(st.session_state.current_trip_id)
         if current_trip:
-            st.sidebar.info(f"📍 현재 여행:\n**{current_trip['name']}**")
+            st.sidebar.info(f"📍 현재 여행:\n**{current_trip.get('emoji', '🏝')} {current_trip['name']}**")
             if st.sidebar.button("⬅️ 여행 목록으로", type="secondary"):
                 st.session_state.current_trip_id = None
                 st.session_state.df_expenses = pd.DataFrame()
@@ -396,13 +396,18 @@ def main_app():
             tabs = st.tabs(["📂 내 여행"])
 
         with tabs[0]: # 내 여행 탭
-            trip_options = {v['name']: k for k, v in st.session_state.folders.items()}
+            # 날짜순 정렬 (start_date 기준 오름차순, 없는 경우 맨 뒤로)
+            sorted_trips = sorted(
+                st.session_state.folders.items(), 
+                key=lambda x: x[1].get('start_date', '9999-12-31')
+            )
             
-            if not trip_options:
+            if not sorted_trips:
                 st.info("아직 등록된 여행이 없어요. 😢")
             else:
-                for name, tid in trip_options.items():
-                    trip_info = st.session_state.folders[tid]
+                for tid, trip_info in sorted_trips:
+                    name = trip_info['name']
+                    emoji = trip_info.get('emoji', '🏝')
                     date_str = ""
                     if "start_date" in trip_info and "end_date" in trip_info:
                         date_str = f"<p style='margin: 0; font-size: 13px; color: var(--text-sub);'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
@@ -411,7 +416,7 @@ def main_app():
                     with st.container():
                         st.markdown(f"""
                         <div class="trip-card">
-                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">🏝 {name}</h3>
+                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">{emoji} {name}</h3>
                             {date_str}
                         </div>
                         """, unsafe_allow_html=True)
@@ -434,7 +439,12 @@ def main_app():
             with tabs[1]: # 관리자 탭
                 st.subheader("새 여행 만들기")
                 with st.form("create_trip_form"):
-                    new_trip_name = st.text_input("여행 이름 (예: 다낭 여행)")
+                    col_emj, col_nm = st.columns([1, 4])
+                    with col_emj:
+                        new_emoji = st.selectbox("아이콘", ["🏝", "🗼", "🗽", "⛺", "🏔", "🏖", "🏯", "🏰", "✈️", "🚢", "🎒", "🚘", "🚅"], index=0)
+                    with col_nm:
+                        new_trip_name = st.text_input("여행 이름 (예: 다낭 여행)")
+
                     # Trip duration input
                     new_duration = st.date_input("여행 기간", value=(datetime.now(), datetime.now() + pd.Timedelta(days=3)))
                     new_trip_pw = st.text_input("비밀번호 설정")
@@ -449,6 +459,7 @@ def main_app():
                             
                             new_id = str(uuid.uuid4())
                             st.session_state.folders[new_id] = {
+                                "emoji": new_emoji,
                                 "name": new_trip_name,
                                 "password": new_trip_pw,
                                 "budget": int(new_trip_budget),
@@ -465,14 +476,22 @@ def main_app():
                 st.divider()
                 st.subheader("방 (여행) 관리")
                 for tid, tdata in list(st.session_state.folders.items()):
-                    with st.expander(f"🏝 {tdata['name']} (PW: {tdata.get('password', 'N/A')})"):
-                        new_name = st.text_input("이름", value=tdata['name'], key=f"edit_name_{tid}")
+                    curr_emoji = tdata.get('emoji', '🏝')
+                    with st.expander(f"{curr_emoji} {tdata['name']} (PW: {tdata.get('password', 'N/A')})"):
+                        emojis = ["🏝", "🗼", "🗽", "⛺", "🏔", "🏖", "🏯", "🏰", "✈️", "🚢", "🎒", "🚘", "🚅"]
+                        col_e, col_n = st.columns([1, 4])
+                        with col_e:
+                            new_emj = st.selectbox("아이콘", emojis, index=emojis.index(curr_emoji) if curr_emoji in emojis else 0, key=f"edit_emj_{tid}")
+                        with col_n:
+                            new_name = st.text_input("이름", value=tdata['name'], key=f"edit_name_{tid}")
+                        
                         new_pw = st.text_input("비밀번호", value=tdata.get('password', ''), key=f"edit_pw_{tid}")
                         new_budget = st.number_input("예산", value=int(tdata.get('budget', 0)), key=f"edit_budget_{tid}")
+                        
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("수정 저장", key=f"save_{tid}", type="secondary"):
-                                st.session_state.folders[tid].update({"name": new_name, "password": new_pw, "budget": new_budget})
+                                st.session_state.folders[tid].update({"emoji": new_emj, "name": new_name, "password": new_pw, "budget": new_budget})
                                 save_folders(st.session_state.folders)
                                 st.success("수정 완료!")
                                 st.rerun()
