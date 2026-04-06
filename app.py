@@ -617,7 +617,7 @@ def main_app():
                     st.session_state.df_expenses = pd.concat([st.session_state.df_expenses, new_data], ignore_index=True)
                     save_data(st.session_state.df_expenses, trip_id)
                     st.success("간편 등록이 완료되었습니다!")
-                    import time; time.sleep(0.5); st.rerun()
+                    time.sleep(0.5); st.rerun()
 
         # Main Actions
         # Category Alerts
@@ -687,7 +687,6 @@ def main_app():
                     save_data(st.session_state.df_expenses, trip_id)
                     st.success("🎉 지출이 정상적으로 저장되었습니다!")
                     # Use a short sleep or directly rerun depending on UX preference
-                    import time
                     time.sleep(1.0)
                     st.rerun()
 
@@ -736,7 +735,7 @@ def main_app():
                                     st.session_state.df_expenses = st.session_state.df_expenses[st.session_state.df_expenses['ID'] != row['ID']]
                                     save_data(st.session_state.df_expenses, trip_id)
                                     st.success("삭제 완료!")
-                                    import time; time.sleep(0.5)
+                                    time.sleep(0.5)
                                     st.rerun()
                                     
                             if st.button("✏️ 즉시 수정 저장", key=f"adm_edit_{row['ID']}"):
@@ -745,7 +744,7 @@ def main_app():
                                 st.session_state.df_expenses.loc[mask, 'Amount'] = new_amt
                                 save_data(st.session_state.df_expenses, trip_id)
                                 st.success("수정 완료!")
-                                import time; time.sleep(0.5)
+                                time.sleep(0.5)
                                 st.rerun()
                         else:
                             st.caption("변경 또는 삭제는 관리자 승인이 필요합니다.")
@@ -931,7 +930,7 @@ if st.session_state.user_session is None:
                     if remember_me:
                         cookie_manager.set("saved_user", login_id, expires_at=datetime.now() + pd.Timedelta(days=30))
                         cookie_manager.set("saved_role", user['role'], expires_at=datetime.now() + pd.Timedelta(days=30))
-                    import time; time.sleep(0.5)
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error(msg)
