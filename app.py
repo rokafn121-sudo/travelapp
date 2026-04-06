@@ -364,13 +364,13 @@ def main_app():
                     trip_info = st.session_state.folders[tid]
                     date_str = ""
                     if "start_date" in trip_info and "end_date" in trip_info:
-                        date_str = f"<p style='margin: 0; font-size: 13px; color: #888;'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
+                        date_str = f"<p style='margin: 0; font-size: 13px; color: var(--text-sub);'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
 
                     # Card-like container for each trip
                     with st.container():
                         st.markdown(f"""
                         <div class="trip-card">
-                            <h3 style="margin: 0 0 8px 0; color: #0F172A;">🏝 {name}</h3>
+                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">🏝 {name}</h3>
                             {date_str}
                         </div>
                         """, unsafe_allow_html=True)
@@ -534,17 +534,17 @@ def main_app():
         with m1:
             st.markdown(f"""
             <div class="metric-card">
-                <div style="font-size: 12px; color: #888;">지출 (Spent)</div>
+                <div style="font-size: 12px; color: var(--text-sub);">지출 (Spent)</div>
                 <div style="font-size: 20px; font-weight: bold; color: #ff4d4f;">{total_spent:,.0f}</div>
-                <div style="font-size: 10px; color: #888;">{total_spent/budget*100:.1f}%</div>
+                <div style="font-size: 10px; color: var(--text-sub);">{total_spent/budget*100:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
         with m2:
             st.markdown(f"""
             <div class="metric-card">
-                <div style="font-size: 12px; color: #888;">잔액 (Left)</div>
+                <div style="font-size: 12px; color: var(--text-sub);">잔액 (Left)</div>
                 <div style="font-size: 20px; font-weight: bold; color: {'#52c41a' if remaining > 0 else '#ff4d4f'};">{remaining:,.0f}</div>
-                 <div style="font-size: 10px; color: #888;">{remaining/budget*100:.1f}%</div>
+                 <div style="font-size: 10px; color: var(--text-sub);">{remaining/budget*100:.1f}%</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -666,12 +666,12 @@ def main_app():
                     st.markdown(f"""
                     <div class="history-item">
                         <div>
-                            <div style="font-size: 16px; font-weight: 700; color: #0F172A;">{emoji} {icon_has_img}{row['Item']}</div>
-                            <div style="font-size: 13px; color: #64748B; margin-top: 4px;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
+                            <div style="font-size: 16px; font-weight: 700; color: var(--text-main);">{emoji} {icon_has_img}{row['Item']}</div>
+                            <div style="font-size: 13px; color: var(--text-sub); margin-top: 4px;">{row['Date'].strftime('%m.%d')} · {row['Category']} · 👤 {row.get('User', '알수없음')}</div>
                         </div>
                         <div style="text-align: right;">
-                            <div style="font-size: 17px; font-weight: 800; color: #0F172A;">-{row['Amount']:,.0f} 원</div>
-                            <div style="font-size: 12px; color: #94A3B8; margin-top: 2px;">{row['Original Amount']:,.2f} {row['Currency']}</div>
+                            <div style="font-size: 17px; font-weight: 800; color: var(--text-main);">-{row['Amount']:,.0f} 원</div>
+                            <div style="font-size: 12px; color: var(--text-sub); margin-top: 2px;">{row['Original Amount']:,.2f} {row['Currency']}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
@@ -787,7 +787,7 @@ if st.session_state.user_session is None:
                     <img src="data:image/png;base64,{data}" class="profile-img">
                     <div style="text-align: center; margin-bottom: 30px;">
                         <h2 style="margin: 0; color: #ff85c0; font-family: 'Jua', sans-serif;">✈️ 영늘 트립 트래커 ✈️</h2>
-                        <p style="color: #888; font-size: 1.1em;">당신의 완벽한 여행을 위하여 💖</p>
+                        <p style="color: var(--text-sub); font-size: 1.1em;">당신의 완벽한 여행을 위하여 💖</p>
                     </div>
                 """, unsafe_allow_html=True)
             else:
