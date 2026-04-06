@@ -2,8 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import extra_streamlit_components as stx
-from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests
+from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests, load_itineraries, save_itinerary_event, delete_itinerary_event
 from datetime import datetime
+import time
 import uuid
 import os
 import requests
@@ -620,7 +621,7 @@ def main_app():
                 if cat in cat_totals and cat_totals[cat] > limit:
                     st.error(f"⚠️ **예산 초과 경고:** '{cat}' 카테고리 지출({cat_totals[cat]:,.0f}원)이 설정된 예산({limit:,.0f}원)을 초과했습니다!")
 
-        tab_add, tab_history, tab_stats = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계"])
+        tab_add, tab_history, tab_stats, tab_itinerary = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"])
 
         with tab_add:
             with st.container():
@@ -800,6 +801,85 @@ def main_app():
                     st.warning(f"엑셀 내보내기 실패: {e}")
             else:
                 st.text("통계를 보려면 지출을 입력하세요.")
+
+        with tab_itinerary:
+            st.markdown("### 📅 여행 일정 관리")
+            st.caption("시간대별 일정을 추가하고 확인하세요. 🕒")
+            
+            # --- 일정 추가 폼 ---
+            with st.expander("➕ 새 일정 추가하기", expanded=False):
+                with st.form("add_itinerary_form", clear_on_submit=True):
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        try:
+                            t_start = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
+                            t_end = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
+                        except:
+                            t_start = datetime.now().date()
+                            t_end = datetime.now().date()
+                        
+                        i_date = st.date_input("날짜", value=t_start, min_value=t_start, max_value=t_end)
+                        i_time = st.time_input("시간 (선택)")
+                    with col2:
+                        i_title = st.text_input("일정 제목 *", placeholder="예: 공항 도착 및 렌트카 픽업")
+                        i_loc = st.text_input("장소", placeholder="지명, 주소, 또는 구글맵 링크")
+                    
+                    i_memo = st.text_area("메모", placeholder="필요한 메모 (예: 탑승권 챙기기, 바우처 확인 등)")
+                    
+                    if st.form_submit_button("일정 저장하기", use_container_width=True):
+                        if not i_title:
+                            st.error("일정 제목은 필수입니다!")
+                        else:
+                            evt_data = {
+                                "date": i_date.strftime("%Y-%m-%d"),
+                                "time": i_time.strftime("%H:%M") if i_time else "",
+                                "title": i_title,
+                                "location": i_loc,
+                                "memo": i_memo
+                            }
+                            save_itinerary_event(trip_id, evt_data)
+                            st.success("✅ 일정이 성공적으로 추가되었습니다!")
+                            time.sleep(0.5)
+                            st.rerun()
+
+            # --- 타임라인 뷰 ---
+            st.markdown("#### ⏳ 나의 타임라인")
+            events = load_itineraries(trip_id)
+            
+            if not events:
+                st.info("아직 등록된 일정이 없습니다. 새 일정을 추가해보세요! 🚀")
+            else:
+                # Group by date
+                from collections import defaultdict
+                itinerary_grouped = defaultdict(list)
+                for ev in events:
+                    itinerary_grouped[ev['date']].append(ev)
+                
+                for d_key in sorted(itinerary_grouped.keys()):
+                    st.markdown(f"**🚩 {d_key}**")
+                    day_events = itinerary_grouped[d_key]
+                    
+                    for ev in day_events:
+                        with st.container():
+                            col_info, col_del = st.columns([85, 15])
+                            with col_info:
+                                st.markdown(f"""
+                                <div style="background-color: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+                                    <h5 style="margin:0; color:var(--text-main); font-weight: 700;">
+                                        <span style="color:var(--primary); margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
+                                    </h5>
+                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev["location"]}</p>' if ev.get('location') else ''}
+                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev["memo"]}</p>' if ev.get('memo') else ''}
+                                </div>
+                                """, unsafe_allow_html=True)
+                            with col_del:
+                                st.markdown("<br>", unsafe_allow_html=True) # 알맞은 정렬을 위해 띄어쓰기
+                                if st.button("삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
+                                    delete_itinerary_event(ev['id'])
+                                    time.sleep(0.3)
+                                    st.rerun()
+                            
+                            st.write("") # card bottom margin
 
 
 # --- 로그인 / 회원가입 화면 (Center Layout) ---
