@@ -6,8 +6,6 @@ from utils import load_data, save_data, calculate_metrics, get_exchange_rate, lo
 from datetime import datetime
 import uuid
 import os
-import pytesseract
-from PIL import Image
 import requests
 import re
 
@@ -244,9 +242,6 @@ if 'df_expenses' not in st.session_state:
 
 if 'dark_mode' not in st.session_state:
     st.session_state.dark_mode = False
-
-if 'ocr_amount' not in st.session_state:
-    st.session_state.ocr_amount = 0.0
 
 # 세션 상태: 사용자 인증
 if 'user_session' not in st.session_state:
@@ -611,30 +606,10 @@ def main_app():
                 
                 # Photo upload
                 receipt_image = st.file_uploader("영수증 / 지출 사진 첨부 📸", type=["jpg", "jpeg", "png"])
-                
-                # 영수증 스캔 기능
-                if receipt_image is not None:
-                    if st.button("🔍 영수증 자동 스캔 (OCR)", use_container_width=True):
-                        with st.spinner("분석 중입니다..."):
-                            try:
-                                img = Image.open(receipt_image)
-                                text = pytesseract.image_to_string(img, lang='eng+kor')
-                                nums = [float(n.replace(',', '')) for n in re.findall(r'\d[\d,]+', text) if n.replace(',', '').isdigit()]
-                                if nums:
-                                    st.session_state.ocr_amount = max(nums)
-                                    st.success("인식 완료! 입력된 금액을 확인하세요.")
-                                else:
-                                    st.warning("금액 인식 실패.")
-                            except ImportError:
-                                st.warning("pytesseract 라이브러리가 로드되지 않았습니다.")
-                            except Exception as e:
-                                st.error(f"OCR 불가능: {e}")
-
-                amount_default = float(st.session_state.ocr_amount) if st.session_state.ocr_amount > 0 else 0.0
 
                 c1, c2 = st.columns(2)
                 with c1:
-                    amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, value=amount_default, format="%.2f")
+                    amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, format="%.2f")
                 with c2:
                     manual_rate = st.number_input("환율", value=float(current_rate), format="%.2f")
 
