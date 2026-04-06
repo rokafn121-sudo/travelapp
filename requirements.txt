@@ -5,3 +5,6 @@ yfinance
 extra-streamlit-components
 openpyxl
 firebase-admin
+pytesseract
+Pillow
+requests

@@ -6,6 +6,10 @@ from utils import load_data, save_data, calculate_metrics, get_exchange_rate, lo
 from datetime import datetime
 import uuid
 import os
+import pytesseract
+from PIL import Image
+import requests
+import re
 
 # 페이지 설정
 st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️", layout="wide")
@@ -153,6 +157,12 @@ st.markdown("""
         font-weight: 700 !important;
         letter-spacing: -0.03em;
         color: var(--text-main) !important;
+        word-break: keep-all; 
+    }
+    @media (max-width: 768px) {
+        h1 { font-size: 1.4rem !important; }
+        h2 { font-size: 1.2rem !important; }
+        h3 { font-size: 1.1rem !important; }
     }
     
     /* Expander Style */
@@ -199,6 +209,29 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+if st.session_state.get('dark_mode', False):
+    st.markdown("""
+        <style>
+        html, body, [class*="css"], .stApp {
+            background-color: #0F172A !important;
+            color: #F8FAFC !important;
+        }
+        :root {
+            --bg-color: #0F172A;
+            --card-bg: #1E293B;
+            --text-main: #F8FAFC;
+            --text-sub: #94A3B8;
+            --border-color: #334155;
+        }
+        h1, h2, h3 { color: #F8FAFC !important; }
+        .history-item:hover { border-color: #475569; }
+        .trip-card, .metric-card, .history-item { 
+            background: var(--card-bg) !important; 
+            border-color: var(--border-color) !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
 # 초기화
 if 'folders' not in st.session_state:
     st.session_state.folders = load_folders()
@@ -208,6 +241,12 @@ if 'current_trip_id' not in st.session_state:
 
 if 'df_expenses' not in st.session_state:
     st.session_state.df_expenses = pd.DataFrame()
+
+if 'dark_mode' not in st.session_state:
+    st.session_state.dark_mode = False
+
+if 'ocr_amount' not in st.session_state:
+    st.session_state.ocr_amount = 0.0
 
 # 세션 상태: 사용자 인증
 if 'user_session' not in st.session_state:
@@ -246,6 +285,18 @@ if st.session_state.user_session is None:
                 st.session_state.user_session = {"username": saved_user, "role": saved_role}
                 st.rerun()
 
+@st.cache_data(ttl=3600)
+def get_auto_currency():
+    try:
+        res = requests.get('http://ip-api.com/json/', timeout=3).json()
+        cc = res.get("countryCode", "KR")
+        if cc == "US": return 1 # USD
+        elif cc in ["FR", "DE", "IT", "ES", "NL", "BE", "AT", "IE", "FI", "PT"]: return 2 # EUR
+        elif cc == "JP": return 3 # JPY
+        return 0 # KRW
+    except:
+        return 0
+
 # --- 메인 앱 로직 (로그인 후 실행됨) ---
 def main_app():
     user = st.session_state.user_session
@@ -272,6 +323,14 @@ def main_app():
 
     st.sidebar.markdown("---")
     
+    # 북마크/다크 모드 설정
+    dark_toggle = st.sidebar.toggle("🌙 다크 모드", value=st.session_state.dark_mode)
+    if dark_toggle != st.session_state.dark_mode:
+        st.session_state.dark_mode = dark_toggle
+        st.rerun()
+    
+    st.sidebar.markdown("---")
+    
     if st.session_state.current_trip_id:
         current_trip = st.session_state.folders.get(st.session_state.current_trip_id)
         if current_trip:
@@ -285,7 +344,7 @@ def main_app():
             st.rerun()
     
     st.sidebar.markdown("---")
-    st.sidebar.caption("Designed with ❤️ by Antigravity AI")
+    st.sidebar.caption("Designed by 영현 ✨")
 
     # --- 메인 로직 ---
 
@@ -496,6 +555,34 @@ def main_app():
 
         st.progress(min(total_spent / budget if budget > 0 else 0, 1.0))
 
+        # ⚡ 빠른 지출 추가 (Quick Add)
+        with st.expander("⚡ 빠른 지출 추가 (Quick Add)", expanded=False):
+            with st.form("quick_add_form", clear_on_submit=True):
+                q_col1, q_col2 = st.columns(2)
+                with q_col1:
+                    qa_amount = st.number_input("지불한 결제금액 (KRW 환산)", min_value=0.0, step=1000.0)
+                with q_col2:
+                    qa_item = st.text_input("간단한 지출 내용")
+                
+                if st.form_submit_button("🚀 간편 등록") and qa_item and qa_amount > 0:
+                    exp_id = str(uuid.uuid4())
+                    new_data = pd.DataFrame({
+                        "ID": [exp_id],
+                        "Date": [pd.to_datetime(datetime.now().strftime("%Y-%m-%d"))],
+                        "Category": ["기타 (Others)"],
+                        "Item": [qa_item],
+                        "Amount": [qa_amount],
+                        "Currency": ["KRW"],
+                        "Original Amount": [qa_amount],
+                        "Exchange Rate": [1.0],
+                        "User": [username],
+                        "image_path": [None]
+                    })
+                    st.session_state.df_expenses = pd.concat([st.session_state.df_expenses, new_data], ignore_index=True)
+                    save_data(st.session_state.df_expenses, trip_id)
+                    st.success("간편 등록이 완료되었습니다!")
+                    import time; time.sleep(0.5); st.rerun()
+
         # Main Actions
         # Category Alerts
         cat_budgets = trip_data.get('category_budgets', {})
@@ -514,7 +601,7 @@ def main_app():
                 with col_date:
                     date = st.date_input("날짜", datetime.now(), label_visibility="collapsed")
                 with col_curr:
-                    currency = st.selectbox("통화", ["KRW", "USD", "EUR", "JPY"], label_visibility="collapsed")
+                    currency = st.selectbox("통화", ["KRW", "USD", "EUR", "JPY"], index=get_auto_currency(), label_visibility="collapsed")
                 
                 # Fetch rate quietly
                 current_rate = get_exchange_rate(currency, date)
@@ -522,14 +609,34 @@ def main_app():
                 category = st.selectbox("카테고리", ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"])
                 item = st.text_input("무엇을 샀나요?", placeholder="예: 맛있는 라멘")
                 
-                c1, c2 = st.columns(2)
-                with c1:
-                    amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, format="%.2f")
-                with c2:
-                    manual_rate = st.number_input("환율", value=float(current_rate), format="%.2f")
-                
                 # Photo upload
                 receipt_image = st.file_uploader("영수증 / 지출 사진 첨부 📸", type=["jpg", "jpeg", "png"])
+                
+                # 영수증 스캔 기능
+                if receipt_image is not None:
+                    if st.button("🔍 영수증 자동 스캔 (OCR)", use_container_width=True):
+                        with st.spinner("분석 중입니다..."):
+                            try:
+                                img = Image.open(receipt_image)
+                                text = pytesseract.image_to_string(img, lang='eng+kor')
+                                nums = [float(n.replace(',', '')) for n in re.findall(r'\d[\d,]+', text) if n.replace(',', '').isdigit()]
+                                if nums:
+                                    st.session_state.ocr_amount = max(nums)
+                                    st.success("인식 완료! 입력된 금액을 확인하세요.")
+                                else:
+                                    st.warning("금액 인식 실패.")
+                            except ImportError:
+                                st.warning("pytesseract 라이브러리가 로드되지 않았습니다.")
+                            except Exception as e:
+                                st.error(f"OCR 불가능: {e}")
+
+                amount_default = float(st.session_state.ocr_amount) if st.session_state.ocr_amount > 0 else 0.0
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    amount_origin = st.number_input(f"금액 ({currency})", min_value=0.0, value=amount_default, format="%.2f")
+                with c2:
+                    manual_rate = st.number_input("환율", value=float(current_rate), format="%.2f")
 
                 if st.button("저장하기 (Save)", use_container_width=True):
                     final_krw = amount_origin * manual_rate
@@ -602,7 +709,7 @@ def main_app():
                             else:
                                 st.warning("이미지 파일을 찾을 수 없습니다.")
 
-                    with st.expander("세부 관리 (수정/삭제)"):
+                    with st.expander("👉 밀어서 메뉴 보기 (수정/삭제)"):
                         if role == 'admin':
                             c_amt, c_del = st.columns([3, 1])
                             with c_amt:
@@ -663,20 +770,6 @@ def main_app():
                 for cat, val in usage.items():
                     st.caption(f"{cat}: {val:,.0f} KRW ({val/total_spent*100:.1f}%)")
 
-                st.markdown("### 🗓️ 일자별 예산 소진 차트 (Daily Burn Rate)")
-                df_daily = st.session_state.df_expenses.groupby(st.session_state.df_expenses['Date'].dt.date)['Amount'].sum().reset_index()
-                df_daily.columns = ['날짜', '지출액']
-                
-                fig_bar = px.bar(df_daily, x='날짜', y='지출액', text_auto='.2s', color_discrete_sequence=['#3B82F6'])
-                fig_bar.update_layout(
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    xaxis_title=None,
-                    yaxis_title=None
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-                
                 # Excel Export Button
                 st.divider()
                 st.markdown("### 📥 여행 데이터 내보내기")

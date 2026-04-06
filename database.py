@@ -8,6 +8,8 @@ def get_db():
             if "firebase" in st.secrets:
                 # Firestore credentials from Streamlit Secrets
                 cert = dict(st.secrets["firebase"])
+                if "private_key" in cert:
+                    cert["private_key"] = cert["private_key"].replace("\\n", "\n")
                 cred = credentials.Certificate(cert)
                 firebase_admin.initialize_app(cred)
             else:
