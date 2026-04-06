@@ -818,9 +818,16 @@ def main_app():
                     col1, col2 = st.columns(2)
                     with col1:
                         try:
-                            t_start = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
-                            t_end = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
-                        except:
+                            try:
+                                ts = datetime.strptime(current_trip['start_date'], "%Y-%m-%d").date()
+                                te = datetime.strptime(current_trip['end_date'], "%Y-%m-%d").date()
+                            except ValueError:
+                                ts = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
+                                te = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
+                            import pandas as pd
+                            t_start = ts - pd.Timedelta(days=1)
+                            t_end = te + pd.Timedelta(days=1)
+                        except Exception:
                             t_start = datetime.now().date()
                             t_end = datetime.now().date()
                         
@@ -848,12 +855,30 @@ def main_app():
                             time.sleep(0.5)
                             st.rerun()
 
-            # --- 타임라인 뷰 ---
-            st.markdown("#### ⏳ 나의 타임라인")
+            # --- 한눈에 보는 여행 계획표 ---
             events = load_itineraries(trip_id)
+            if events:
+                df_itin = pd.DataFrame(events)
+                # Ensure all columns exist
+                for c in ['date', 'time', 'title', 'location', 'completed']:
+                    if c not in df_itin.columns:
+                        df_itin[c] = ""
+                df_itin['상태'] = df_itin['completed'].apply(lambda x: '✅ 완료' if x else '⏳ 예정')
+                
+                st.markdown("#### 🗺️ 전체 여행 계획 요약표")
+                st.dataframe(
+                    df_itin[['date', 'time', 'title', 'location', '상태']].rename(
+                        columns={'date':'날짜', 'time':'시간', 'title':'일정명', 'location':'장소'}
+                    ),
+                    use_container_width=True, hide_index=True
+                )
+                st.divider()
+
+            # --- 타임라인 뷰 ---
+            st.markdown("#### ⏳ 나의 타임라인 (상세)")
             
             if not events:
-                st.info("아직 등록된 일정이 없습니다. 새 일정을 추가해보세요! 🚀")
+                st.info("아직 등록된 일정이 없습니다. 위에서 새 일정을 추가해보세요! 🚀")
             else:
                 # Group by date
                 from collections import defaultdict
@@ -866,23 +891,34 @@ def main_app():
                     day_events = itinerary_grouped[d_key]
                     
                     for ev in day_events:
+                        is_completed = ev.get('completed', False)
+                        bg_color = "var(--sidebar-bg)" if is_completed else "var(--card-bg)"
+                        border_color = "var(--text-sub)" if is_completed else "var(--primary)"
+                        text_style = "text-decoration: line-through; opacity: 0.6;" if is_completed else ""
+                        check_text = "✅ 취소" if is_completed else "☐ 완료"
+                        
                         with st.container():
-                            col_info, col_del = st.columns([85, 15])
+                            col_info, col_btn = st.columns([80, 20])
                             with col_info:
                                 st.markdown(f"""
-                                <div style="background-color: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+                                <div style="background-color: {bg_color}; padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid {border_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.03); {text_style}">
                                     <h5 style="margin:0; color:var(--text-main); font-weight: 700;">
-                                        <span style="color:var(--primary); margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
+                                        <span style="color:{border_color}; margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
                                     </h5>
-                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev["location"]}</p>' if ev.get('location') else ''}
-                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev["memo"]}</p>' if ev.get('memo') else ''}
+                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev.get("location", "")}</p>' if ev.get('location') else ''}
+                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev.get("memo", "")}</p>' if ev.get('memo') else ''}
                                 </div>
                                 """, unsafe_allow_html=True)
-                            with col_del:
-                                st.markdown("<br>", unsafe_allow_html=True) # 알맞은 정렬을 위해 띄어쓰기
-                                if st.button("삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
+                            with col_btn:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button(check_text, key=f"chk_evt_{ev['id']}", use_container_width=True):
+                                    ev['completed'] = not is_completed
+                                    save_itinerary_event(trip_id, ev)
+                                    time.sleep(0.1)
+                                    st.rerun()
+                                if st.button("🗑️ 삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
                                     delete_itinerary_event(ev['id'])
-                                    time.sleep(0.3)
+                                    time.sleep(0.1)
                                     st.rerun()
                             
                             st.write("") # card bottom margin
