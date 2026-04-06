@@ -79,8 +79,8 @@ st.markdown(f"""
         letter-spacing: -0.02em;
     }}
     
-    /* Typography */
-    h1, h2, h3, h4, h5, h6, p, span, div, label, .streamlit-expanderHeader {{
+    /* Typography Overrides (Safer) */
+    h1, h2, h3, h4, h5, h6, p, label, .streamlit-expanderHeader, div[data-testid="stMarkdownContainer"] > p {{
         color: var(--text-main) !important;
     }}
     
@@ -99,6 +99,19 @@ st.markdown(f"""
         padding: 10px 14px !important;
         font-weight: 500;
         transition: all 0.2s ease;
+    }}
+    
+    /* Selectbox Dropdown Fix */
+    [data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {{
+        background-color: var(--card-bg) !important;
+    }}
+    li[role="option"] {{
+        background-color: transparent !important;
+        color: var(--text-main) !important;
+    }}
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {{
+        background-color: var(--primary) !important;
+        color: white !important;
     }}
     
     .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox select:focus, div[data-baseweb="select"]:focus-within {{
