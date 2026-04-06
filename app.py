@@ -90,14 +90,23 @@ st.markdown(f"""
         border-right: 1px solid var(--card-border) !important;
     }}
     
-    /* Inputs & Forms */
-    .stTextInput input, .stNumberInput input, .stSelectbox select, .stDateInput input, div[data-baseweb="select"] > div {{
+    /* Inputs & Forms - Text Inputs */
+    .stTextInput input, .stNumberInput input, .stDateInput input {{
         background-color: var(--input-bg) !important;
         color: var(--text-main) !important;
         border-radius: 12px !important;
         border: 1px solid var(--card-border) !important;
         padding: 10px 14px !important;
         font-weight: 500;
+        transition: all 0.2s ease;
+    }}
+    
+    /* Selectbox specific tweaks */
+    div[data-baseweb="select"] > div {{
+        background-color: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
         transition: all 0.2s ease;
     }}
     
