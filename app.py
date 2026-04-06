@@ -881,7 +881,7 @@ def main_app():
                 for c in ['date', 'time', 'title', 'location', 'completed']:
                     if c not in df_itin.columns:
                         df_itin[c] = ""
-                df_itin['상태'] = df_itin['completed'].apply(lambda x: '✅ 완료' if x else '⏳ 예정')
+                df_itin['상태'] = df_itin['completed'].apply(lambda x: '✅ 완료' if x == True else '⏳ 예정')
                 
                 st.markdown("#### 🗺️ 전체 여행 계획 요약표")
                 st.dataframe(
@@ -939,6 +939,43 @@ def main_app():
                                     time.sleep(0.1)
                                     st.rerun()
                             
+                            with st.expander("✏️ 세부 일정 수정", expanded=False):
+                                with st.form(f"edit_form_{ev['id']}"):
+                                    ec1, ec2 = st.columns(2)
+                                    with ec1:
+                                        try:
+                                            cur_date = datetime.strptime(ev['date'], "%Y-%m-%d").date()
+                                        except:
+                                            cur_date = datetime.now().date()
+                                        try:
+                                            if ev.get('time'):
+                                                cur_time = datetime.strptime(ev['time'], "%H:%M").time()
+                                            else:
+                                                cur_time = datetime.now().time()
+                                        except:
+                                            cur_time = datetime.now().time()
+                                            
+                                        e_date = st.date_input("날짜", value=cur_date, min_value=t_start, max_value=t_end, key=f"e_d_{ev['id']}")
+                                        e_time = st.time_input("시간 (선택)", value=cur_time, key=f"e_t_{ev['id']}")
+                                    with ec2:
+                                        e_title = st.text_input("일정 제목 *", value=ev['title'], key=f"e_tt_{ev['id']}")
+                                        e_loc = st.text_input("장소", value=ev.get('location', ''), key=f"e_l_{ev['id']}")
+                                    
+                                    e_memo = st.text_area("메모", value=ev.get('memo', ''), key=f"e_m_{ev['id']}")
+                                    
+                                    if st.form_submit_button("수정 저장하기", use_container_width=True):
+                                        if not e_title:
+                                            st.error("제목은 필수입니다!")
+                                        else:
+                                            ev['date'] = e_date.strftime("%Y-%m-%d")
+                                            ev['time'] = e_time.strftime("%H:%M") if e_time else ""
+                                            ev['title'] = e_title
+                                            ev['location'] = e_loc
+                                            ev['memo'] = e_memo
+                                            save_itinerary_event(trip_id, ev)
+                                            time.sleep(0.3)
+                                            st.rerun()
+
                             st.write("") # card bottom margin
 
 
