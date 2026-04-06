@@ -101,6 +101,11 @@ st.markdown(f"""
         transition: all 0.2s ease;
     }}
     
+    /* Selectbox Inner Text Display Fix */
+    div[data-baseweb="select"] span, div[data-baseweb="select"] div {{
+        color: var(--text-main) !important;
+    }}
+    
     /* Selectbox Dropdown Fix */
     [data-baseweb="popover"], [data-baseweb="menu"], ul[role="listbox"] {{
         background-color: var(--card-bg) !important;
