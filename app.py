@@ -2,6 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import extra_streamlit_components as stx
+
+# --- Streamlit Cloud Hot-Reload Cache Fix ---
+import sys
+if "utils" in sys.modules:
+    import importlib
+    importlib.reload(sys.modules["utils"])
+
 from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests, load_itineraries, save_itinerary_event, delete_itinerary_event
 from datetime import datetime
 import time
