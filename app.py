@@ -17,6 +17,54 @@ import os
 import requests
 import re
 
+# --- PWA On-the-fly Patcher ---
+try:
+    import streamlit as st
+    st_dir = os.path.dirname(st.__file__)
+    st_static = os.path.join(st_dir, 'static')
+    index_path = os.path.join(st_static, 'index.html')
+    if os.path.exists(index_path):
+        with open(index_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        if 'apple-touch-icon.png' not in content:
+            from PIL import Image
+            import json
+            
+            # Generate icons directly into Streamlit's static directory
+            if os.path.exists('profile.png'):
+                with Image.open('profile.png') as img:
+                    img.resize((192, 192), Image.Resampling.LANCZOS).save(os.path.join(st_static, 'icon-192.png'), format='PNG')
+                    img.resize((512, 512), Image.Resampling.LANCZOS).save(os.path.join(st_static, 'icon-512.png'), format='PNG')
+                    img.resize((180, 180), Image.Resampling.LANCZOS).save(os.path.join(st_static, 'apple-touch-icon.png'), format='PNG')
+                    img.resize((192, 192), Image.Resampling.LANCZOS).save(os.path.join(st_static, 'favicon.png'), format='PNG')
+            
+            # Generate manifest
+            manifest = {
+                "name": "Travel Budget Tracker",
+                "short_name": "TripTracker",
+                "theme_color": "#ffffff",
+                "background_color": "#ffffff",
+                "display": "standalone",
+                "start_url": "/?standalone=true",
+                "icons": [
+                    {"src": "./icon-192.png", "sizes": "192x192", "type": "image/png"},
+                    {"src": "./icon-512.png", "sizes": "512x512", "type": "image/png"}
+                ]
+            }
+            with open(os.path.join(st_static, 'manifest.json'), 'w', encoding='utf-8') as f:
+                json.dump(manifest, f)
+                
+            # Patch index.html
+            content = content.replace('<link rel="shortcut icon" href="./favicon.png" />', 
+                                      '<link rel="shortcut icon" href="./icon-192.png" />\n    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />\n    <link rel="manifest" href="./manifest.json" />')
+            
+            with open(index_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+except Exception:
+    pass
+# -----------------------------
+
 from PIL import Image
 
 try:
