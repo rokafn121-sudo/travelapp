@@ -497,6 +497,7 @@ def main_app():
                         new_budget = st.number_input("예산", value=int(tdata.get('budget', 0)), key=f"edit_budget_{tid}")
                         
                         # [ADDED] 총무 배정 UI: 현재 방의 총무를 선택하거나 해제할 수 있습니다.
+                        users = load_users() # Fix UnboundLocalError
                         manager_options = ["(지정 안함)"] + list(users.keys())
                         current_mgr = tdata.get('manager_id', "(지정 안함)")
                         if current_mgr not in manager_options:
