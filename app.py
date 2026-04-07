@@ -2,6 +2,13 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import extra_streamlit_components as stx
+
+# --- Streamlit Cloud Hot-Reload Cache Fix ---
+import sys
+if "utils" in sys.modules:
+    import importlib
+    importlib.reload(sys.modules["utils"])
+
 from utils import load_data, save_data, calculate_metrics, get_exchange_rate, load_folders, save_folders, load_users, register_user, verify_user, approve_user, delete_user, load_expense_requests, save_expense_requests, load_itineraries, save_itinerary_event, delete_itinerary_event
 from datetime import datetime
 import time
@@ -10,12 +17,20 @@ import os
 import requests
 import re
 
+from PIL import Image
+
+try:
+    _icon = Image.open("profile.png")
+except Exception:
+    _icon = "✈️"
+
 # 페이지 설정
-st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon="✈️", layout="wide")
+st.set_page_config(page_title="영늘 트립 트래커 🎀", page_icon=_icon, layout="wide")
 
 # Image Paths
 # Local or deployed relative path
 PROFILE_IMAGE_PATH = "profile.png"
+
 
 # 초기화
 if 'folders' not in st.session_state:
@@ -363,7 +378,7 @@ def main_app():
     if st.session_state.current_trip_id:
         current_trip = st.session_state.folders.get(st.session_state.current_trip_id)
         if current_trip:
-            st.sidebar.info(f"📍 현재 여행:\n**{current_trip['name']}**")
+            st.sidebar.info(f"📍 현재 여행:\n**{current_trip.get('emoji', '🏝')} {current_trip['name']}**")
             if st.sidebar.button("⬅️ 여행 목록으로", type="secondary"):
                 st.session_state.current_trip_id = None
                 st.session_state.df_expenses = pd.DataFrame()
@@ -389,13 +404,18 @@ def main_app():
             tabs = st.tabs(["📂 내 여행"])
 
         with tabs[0]: # 내 여행 탭
-            trip_options = {v['name']: k for k, v in st.session_state.folders.items()}
+            # 날짜순 정렬 (start_date 기준 오름차순, 없는 경우 맨 뒤로)
+            sorted_trips = sorted(
+                st.session_state.folders.items(), 
+                key=lambda x: x[1].get('start_date', '9999-12-31')
+            )
             
-            if not trip_options:
+            if not sorted_trips:
                 st.info("아직 등록된 여행이 없어요. 😢")
             else:
-                for name, tid in trip_options.items():
-                    trip_info = st.session_state.folders[tid]
+                for tid, trip_info in sorted_trips:
+                    name = trip_info['name']
+                    emoji = trip_info.get('emoji', '🏝')
                     date_str = ""
                     if "start_date" in trip_info and "end_date" in trip_info:
                         date_str = f"<p style='margin: 0; font-size: 13px; color: var(--text-sub);'>🗓️ {trip_info['start_date']} ~ {trip_info['end_date']}</p>"
@@ -404,7 +424,7 @@ def main_app():
                     with st.container():
                         st.markdown(f"""
                         <div class="trip-card">
-                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">🏝 {name}</h3>
+                            <h3 style="margin: 0 0 8px 0; color: var(--text-main);">{emoji} {name}</h3>
                             {date_str}
                         </div>
                         """, unsafe_allow_html=True)
@@ -427,7 +447,12 @@ def main_app():
             with tabs[1]: # 관리자 탭
                 st.subheader("새 여행 만들기")
                 with st.form("create_trip_form"):
-                    new_trip_name = st.text_input("여행 이름 (예: 다낭 여행)")
+                    col_emj, col_nm = st.columns([1, 4])
+                    with col_emj:
+                        new_emoji = st.selectbox("아이콘", ["🏝", "🗼", "🗽", "⛺", "🏔", "🏖", "🏯", "🏰", "✈️", "🚢", "🎒", "🚘", "🚅"], index=0)
+                    with col_nm:
+                        new_trip_name = st.text_input("여행 이름 (예: 다낭 여행)")
+
                     # Trip duration input
                     new_duration = st.date_input("여행 기간", value=(datetime.now(), datetime.now() + pd.Timedelta(days=3)))
                     new_trip_pw = st.text_input("비밀번호 설정")
@@ -442,6 +467,7 @@ def main_app():
                             
                             new_id = str(uuid.uuid4())
                             st.session_state.folders[new_id] = {
+                                "emoji": new_emoji,
                                 "name": new_trip_name,
                                 "password": new_trip_pw,
                                 "budget": int(new_trip_budget),
@@ -457,24 +483,44 @@ def main_app():
                 
                 st.divider()
                 st.subheader("방 (여행) 관리")
+                users = load_users() # Fetch once for all folders to prevent UI hanging
                 for tid, tdata in list(st.session_state.folders.items()):
-                    with st.expander(f"🏝 {tdata['name']} (PW: {tdata.get('password', 'N/A')})"):
-                        new_name = st.text_input("이름", value=tdata['name'], key=f"edit_name_{tid}")
+                    curr_emoji = tdata.get('emoji', '🏝')
+                    with st.expander(f"{curr_emoji} {tdata['name']} (PW: {tdata.get('password', 'N/A')})"):
+                        emojis = ["🏝", "🗼", "🗽", "⛺", "🏔", "🏖", "🏯", "🏰", "✈️", "🚢", "🎒", "🚘", "🚅"]
+                        col_e, col_n = st.columns([1, 4])
+                        with col_e:
+                            new_emj = st.selectbox("아이콘", emojis, index=emojis.index(curr_emoji) if curr_emoji in emojis else 0, key=f"edit_emj_{tid}")
+                        with col_n:
+                            new_name = st.text_input("이름", value=tdata['name'], key=f"edit_name_{tid}")
+                        
                         new_pw = st.text_input("비밀번호", value=tdata.get('password', ''), key=f"edit_pw_{tid}")
                         new_budget = st.number_input("예산", value=int(tdata.get('budget', 0)), key=f"edit_budget_{tid}")
+                        
+                        # [ADDED] 총무 배정 UI: 현재 방의 총무를 선택하거나 해제할 수 있습니다.
+                        manager_options = ["(지정 안함)"] + list(users.keys())
+                        current_mgr = tdata.get('manager_id', "(지정 안함)")
+                        if current_mgr not in manager_options:
+                            current_mgr = "(지정 안함)"
+                        new_manager = st.selectbox("총무 지정", manager_options, index=manager_options.index(current_mgr), key=f"edit_mgr_{tid}")
+                        
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("수정 저장", key=f"save_{tid}", type="secondary"):
-                                st.session_state.folders[tid].update({"name": new_name, "password": new_pw, "budget": new_budget})
+                                manager_val = new_manager if new_manager != "(지정 안함)" else ""
+                                st.session_state.folders[tid].update({"emoji": new_emj, "name": new_name, "password": new_pw, "budget": new_budget, "manager_id": manager_val})
                                 save_folders(st.session_state.folders)
                                 st.success("수정 완료!")
                                 st.rerun()
                         with col2:
-                            if st.button("🔴 위 여행 삭제하기", key=f"del_{tid}", use_container_width=True):
-                                del st.session_state.folders[tid]
-                                save_folders(st.session_state.folders)
-                                st.success("여행이 삭제되었습니다.")
-                                st.rerun()
+                            with st.popover("🔴 위 여행 삭제하기", use_container_width=True):
+                                st.warning("정말 해당 방을 삭제하시겠습니까? (복구 불가)")
+                                if st.button("✅ 확정 (삭제하기)", key=f"del_{tid}", type="primary", use_container_width=True):
+                                    del st.session_state.folders[tid]
+                                    save_folders(st.session_state.folders)
+                                    st.success("여행이 삭제되었습니다.")
+                                    time.sleep(0.5)
+                                    st.rerun()
 
                 st.divider()
                 st.subheader("사용자 관리")
@@ -610,7 +656,7 @@ def main_app():
                     st.session_state.df_expenses = pd.concat([st.session_state.df_expenses, new_data], ignore_index=True)
                     save_data(st.session_state.df_expenses, trip_id)
                     st.success("간편 등록이 완료되었습니다!")
-                    import time; time.sleep(0.5); st.rerun()
+                    time.sleep(0.5); st.rerun()
 
         # Main Actions
         # Category Alerts
@@ -621,7 +667,18 @@ def main_app():
                 if cat in cat_totals and cat_totals[cat] > limit:
                     st.error(f"⚠️ **예산 초과 경고:** '{cat}' 카테고리 지출({cat_totals[cat]:,.0f}원)이 설정된 예산({limit:,.0f}원)을 초과했습니다!")
 
-        tab_add, tab_history, tab_stats, tab_itinerary = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"])
+        # [ADDED] 총무 권한 여부 연산
+        is_manager = (username == trip_data.get('manager_id', ''))
+        is_admin = (role == 'admin')
+        has_manage_perm = is_manager or is_admin
+
+        # 권한에 따라 탭 리스트 분기 생성
+        tab_names = ["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"]
+        if has_manage_perm:
+            tab_names.append("⚙️ 방 설정")
+            
+        tabs = st.tabs(tab_names)
+        tab_add, tab_history, tab_stats, tab_itinerary = tabs[0], tabs[1], tabs[2], tabs[3]
 
         with tab_add:
             with st.container():
@@ -635,7 +692,10 @@ def main_app():
                 # Fetch rate quietly
                 current_rate = get_exchange_rate(currency, date)
                 
-                category = st.selectbox("카테고리", ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"])
+                # [ADDED] 방에 커스텀 카테고리가 등록되어 있으면 사용하고, 아니면 기본 항목 제공
+                default_cats = ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"]
+                custom_cats = trip_data.get('custom_categories', default_cats)
+                category = st.selectbox("카테고리", custom_cats)
                 item = st.text_input("무엇을 샀나요?", placeholder="예: 맛있는 라멘")
                 
                 # Photo upload
@@ -680,7 +740,6 @@ def main_app():
                     save_data(st.session_state.df_expenses, trip_id)
                     st.success("🎉 지출이 정상적으로 저장되었습니다!")
                     # Use a short sleep or directly rerun depending on UX preference
-                    import time
                     time.sleep(1.0)
                     st.rerun()
 
@@ -719,7 +778,7 @@ def main_app():
                                 st.warning("이미지 파일을 찾을 수 없습니다.")
 
                     with st.expander("👉 밀어서 메뉴 보기 (수정/삭제)"):
-                        if role == 'admin':
+                        if has_manage_perm:
                             c_amt, c_del = st.columns([3, 1])
                             with c_amt:
                                 new_item = st.text_input("새 항목명", value=row['Item'], key=f"adm_i_{row['ID']}")
@@ -729,7 +788,7 @@ def main_app():
                                     st.session_state.df_expenses = st.session_state.df_expenses[st.session_state.df_expenses['ID'] != row['ID']]
                                     save_data(st.session_state.df_expenses, trip_id)
                                     st.success("삭제 완료!")
-                                    import time; time.sleep(0.5)
+                                    time.sleep(0.5)
                                     st.rerun()
                                     
                             if st.button("✏️ 즉시 수정 저장", key=f"adm_edit_{row['ID']}"):
@@ -738,7 +797,7 @@ def main_app():
                                 st.session_state.df_expenses.loc[mask, 'Amount'] = new_amt
                                 save_data(st.session_state.df_expenses, trip_id)
                                 st.success("수정 완료!")
-                                import time; time.sleep(0.5)
+                                time.sleep(0.5)
                                 st.rerun()
                         else:
                             st.caption("변경 또는 삭제는 관리자 승인이 필요합니다.")
@@ -812,9 +871,15 @@ def main_app():
                     col1, col2 = st.columns(2)
                     with col1:
                         try:
-                            t_start = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
-                            t_end = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
-                        except:
+                            try:
+                                ts = datetime.strptime(current_trip['start_date'], "%Y-%m-%d").date()
+                                te = datetime.strptime(current_trip['end_date'], "%Y-%m-%d").date()
+                            except ValueError:
+                                ts = datetime.strptime(current_trip['start_date'], "%Y/%m/%d").date()
+                                te = datetime.strptime(current_trip['end_date'], "%Y/%m/%d").date()
+                            t_start = ts - pd.Timedelta(days=1)
+                            t_end = te + pd.Timedelta(days=1)
+                        except Exception:
                             t_start = datetime.now().date()
                             t_end = datetime.now().date()
                         
@@ -842,12 +907,30 @@ def main_app():
                             time.sleep(0.5)
                             st.rerun()
 
-            # --- 타임라인 뷰 ---
-            st.markdown("#### ⏳ 나의 타임라인")
+            # --- 한눈에 보는 여행 계획표 ---
             events = load_itineraries(trip_id)
+            if events:
+                df_itin = pd.DataFrame(events)
+                # Ensure all columns exist
+                for c in ['date', 'time', 'title', 'location', 'completed']:
+                    if c not in df_itin.columns:
+                        df_itin[c] = ""
+                df_itin['상태'] = df_itin['completed'].apply(lambda x: '✅ 완료' if x == True else '⏳ 예정')
+                
+                st.markdown("#### 🗺️ 전체 여행 계획 요약표")
+                st.dataframe(
+                    df_itin[['date', 'time', 'title', 'location', '상태']].rename(
+                        columns={'date':'날짜', 'time':'시간', 'title':'일정명', 'location':'장소'}
+                    ),
+                    use_container_width=True, hide_index=True
+                )
+                st.divider()
+
+            # --- 타임라인 뷰 ---
+            st.markdown("#### ⏳ 나의 타임라인 (상세)")
             
             if not events:
-                st.info("아직 등록된 일정이 없습니다. 새 일정을 추가해보세요! 🚀")
+                st.info("아직 등록된 일정이 없습니다. 위에서 새 일정을 추가해보세요! 🚀")
             else:
                 # Group by date
                 from collections import defaultdict
@@ -860,26 +943,123 @@ def main_app():
                     day_events = itinerary_grouped[d_key]
                     
                     for ev in day_events:
+                        is_completed = ev.get('completed', False)
+                        bg_color = "var(--sidebar-bg)" if is_completed else "var(--card-bg)"
+                        border_color = "var(--text-sub)" if is_completed else "var(--primary)"
+                        text_style = "text-decoration: line-through; opacity: 0.6;" if is_completed else ""
+                        check_text = "✅ 취소" if is_completed else "☐ 완료"
+                        
                         with st.container():
-                            col_info, col_del = st.columns([85, 15])
+                            col_info, col_btn = st.columns([80, 20])
                             with col_info:
                                 st.markdown(f"""
-                                <div style="background-color: var(--card-bg); padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
+                                <div style="background-color: {bg_color}; padding: 16px; border-radius: 12px; margin-bottom: 8px; border-left: 5px solid {border_color}; box-shadow: 0 4px 6px rgba(0,0,0,0.03); {text_style}">
                                     <h5 style="margin:0; color:var(--text-main); font-weight: 700;">
-                                        <span style="color:var(--primary); margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
+                                        <span style="color:{border_color}; margin-right:8px;">{ev.get('time', '⏱️')}</span> {ev['title']}
                                     </h5>
-                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev["location"]}</p>' if ev.get('location') else ''}
-                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev["memo"]}</p>' if ev.get('memo') else ''}
+                                    {f'<p style="margin:6px 0 0 0; color:var(--text-sub); font-size:0.9em;">📍 {ev.get("location", "")}</p>' if ev.get('location') else ''}
+                                    {f'<p style="margin:4px 0 0 0; color:var(--text-sub); font-size:0.85em;">📝 {ev.get("memo", "")}</p>' if ev.get('memo') else ''}
                                 </div>
                                 """, unsafe_allow_html=True)
-                            with col_del:
-                                st.markdown("<br>", unsafe_allow_html=True) # 알맞은 정렬을 위해 띄어쓰기
-                                if st.button("삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
+                            with col_btn:
+                                st.markdown("<br>", unsafe_allow_html=True)
+                                if st.button(check_text, key=f"chk_evt_{ev['id']}", use_container_width=True):
+                                    ev['completed'] = not is_completed
+                                    save_itinerary_event(trip_id, ev)
+                                    time.sleep(0.1)
+                                    st.rerun()
+                                if st.button("🗑️ 삭제", key=f"del_evt_{ev['id']}", use_container_width=True):
                                     delete_itinerary_event(ev['id'])
-                                    time.sleep(0.3)
+                                    time.sleep(0.1)
                                     st.rerun()
                             
+                            with st.expander("✏️ 세부 일정 수정", expanded=False):
+                                with st.form(f"edit_form_{ev['id']}"):
+                                    ec1, ec2 = st.columns(2)
+                                    with ec1:
+                                        try:
+                                            cur_date = datetime.strptime(ev['date'], "%Y-%m-%d").date()
+                                        except:
+                                            cur_date = datetime.now().date()
+                                        try:
+                                            if ev.get('time'):
+                                                cur_time = datetime.strptime(ev['time'], "%H:%M").time()
+                                            else:
+                                                cur_time = datetime.now().time()
+                                        except:
+                                            cur_time = datetime.now().time()
+                                            
+                                        e_date = st.date_input("날짜", value=cur_date, min_value=t_start, max_value=t_end, key=f"e_d_{ev['id']}")
+                                        e_time = st.time_input("시간 (선택)", value=cur_time, key=f"e_t_{ev['id']}")
+                                    with ec2:
+                                        e_title = st.text_input("일정 제목 *", value=ev['title'], key=f"e_tt_{ev['id']}")
+                                        e_loc = st.text_input("장소", value=ev.get('location', ''), key=f"e_l_{ev['id']}")
+                                    
+                                    e_memo = st.text_area("메모", value=ev.get('memo', ''), key=f"e_m_{ev['id']}")
+                                    
+                                    if st.form_submit_button("수정 저장하기", use_container_width=True):
+                                        if not e_title:
+                                            st.error("제목은 필수입니다!")
+                                        else:
+                                            ev['date'] = e_date.strftime("%Y-%m-%d")
+                                            ev['time'] = e_time.strftime("%H:%M") if e_time else ""
+                                            ev['title'] = e_title
+                                            ev['location'] = e_loc
+                                            ev['memo'] = e_memo
+                                            save_itinerary_event(trip_id, ev)
+                                            time.sleep(0.3)
+                                            st.rerun()
+
                             st.write("") # card bottom margin
+
+        # [ADDED] 방 설정 탭 (권한이 있는 사람만 tabs 리스트 길이에 따라 접근)
+        if len(tabs) >= 5:
+            tab_settings = tabs[4]
+            with tab_settings:
+                st.markdown("### ⚙️ 방 설정 (총무/관리자 전용)")
+                st.caption("방의 기본 정보와 지출 카테고리를 관리합니다. 👑")
+                
+                with st.form(f"room_settings_form_{trip_id}"):
+                    s_name = st.text_input("여행 이름", value=trip_data['name'])
+                    s_pw = st.text_input("방 비밀번호", value=trip_data.get('password', ''))
+                    
+                    try:
+                        s_start = pd.to_datetime(trip_data.get('start_date', datetime.now().strftime("%Y-%m-%d")))
+                        s_end = pd.to_datetime(trip_data.get('end_date', datetime.now().strftime("%Y-%m-%d")))
+                    except:
+                        s_start = s_end = datetime.now()
+                        
+                    s_dates = st.date_input("여행 기간", value=(s_start, s_end))
+                    s_budget = st.number_input("총 예산 (KRW)", value=int(trip_data.get('budget', 0)), step=10000)
+                    
+                    # 카테고리 수정 (쉼표로 구분)
+                    default_cats = ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"]
+                    current_cats = trip_data.get('custom_categories', default_cats)
+                    s_cats_str = st.text_input("지출 카테고리 (쉼표로 구분하여 입력)", value=", ".join(current_cats))
+                    st.caption("예시: 식비, 교통, 숙박, 공금, 기념품")
+                    
+                    if st.form_submit_button("설정 저장하기 ✨", use_container_width=True):
+                        new_cats_list = [c.strip() for c in s_cats_str.split(',') if c.strip()]
+                        if isinstance(s_dates, tuple) and len(s_dates) == 2:
+                            start_str, end_str = s_dates[0].strftime("%Y-%m-%d"), s_dates[1].strftime("%Y-%m-%d")
+                        else:
+                            dt_obj = s_dates if s_dates else datetime.now()
+                            start_str = end_str = dt_obj.strftime("%Y-%m-%d") if hasattr(dt_obj, 'strftime') else ""
+                            
+                        trip_data.update({
+                            "name": s_name,
+                            "password": s_pw,
+                            "start_date": start_str,
+                            "end_date": end_str,
+                            "budget": int(s_budget),
+                            "custom_categories": new_cats_list if new_cats_list else default_cats
+                        })
+                        st.session_state.folders[trip_id] = trip_data
+                        save_folders(st.session_state.folders)
+                        st.success("방 설정이 안전하게 저장되었습니다!")
+                        time.sleep(0.5)
+                        st.rerun()
+
 
 
 # --- 로그인 / 회원가입 화면 (Center Layout) ---
@@ -924,7 +1104,7 @@ if st.session_state.user_session is None:
                     if remember_me:
                         cookie_manager.set("saved_user", login_id, expires_at=datetime.now() + pd.Timedelta(days=30))
                         cookie_manager.set("saved_role", user['role'], expires_at=datetime.now() + pd.Timedelta(days=30))
-                    import time; time.sleep(0.5)
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.error(msg)
@@ -943,3 +1123,4 @@ if st.session_state.user_session is None:
 
 else:
     main_app()
+# trigger clean deploy

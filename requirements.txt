@@ -5,3 +5,4 @@ yfinance
 extra-streamlit-components
 openpyxl
 firebase-admin
+requests
