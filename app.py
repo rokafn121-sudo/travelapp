@@ -61,7 +61,7 @@ def patch_streamlit_index():
             with open(manifest_path, "r", encoding="utf-8") as f:
                 manifest_data = json.load(f)
             for icon in manifest_data.get("icons", []):
-                icon["src"] = "./apple-touch-icon.png?v=3"
+                icon["src"] = "./apple-touch-icon.png?v=4"
             with open(target_manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest_data, f)
                 
@@ -73,8 +73,8 @@ def patch_streamlit_index():
         
         pwa_tags = """
         <!-- CUSTOM PWA TAGS START -->
-        <link rel="apple-touch-icon" href="./apple-touch-icon.png?v=3">
-        <link rel="manifest" href="./manifest.json?v=3">
+        <link rel="apple-touch-icon" href="./static/apple-touch-icon.png?v=4">
+        <link rel="manifest" href="./static/manifest.json?v=4">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta name="apple-mobile-web-app-title" content="영늘 트립">
@@ -102,14 +102,14 @@ components.html(
         // Favicon 즉시 교체
         let favicon = doc.querySelector('link[rel="shortcut icon"]');
         if (favicon) {
-            favicon.href = './apple-touch-icon.png?v=3';
+            favicon.href = './favicon.png?v=4';
         }
         
         // PWA 아이콘 DOM 직접 교체 (iOS 사파리 즉시 인식용)
         doc.querySelectorAll('link[rel="apple-touch-icon"]').forEach(e => e.remove());
         const link = doc.createElement('link');
         link.rel = 'apple-touch-icon';
-        link.href = './apple-touch-icon.png?v=3';
+        link.href = './static/apple-touch-icon.png?v=4';
         doc.head.appendChild(link);
     }
     </script>
