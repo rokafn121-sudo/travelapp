@@ -1102,9 +1102,13 @@ if st.session_state.user_session is None:
                     st.session_state.user_session = {"username": login_id, "role": user['role']}
                     st.session_state.explicit_logout = False
                     if remember_me:
-                        cookie_manager.set("saved_user", login_id, expires_at=datetime.now() + pd.Timedelta(days=30))
-                        cookie_manager.set("saved_role", user['role'], expires_at=datetime.now() + pd.Timedelta(days=30))
-                    time.sleep(0.5)
+                        cookie_manager.set("saved_user", login_id, expires_at=datetime.now() + pd.Timedelta(days=30), secure=True, same_site='lax')
+                        cookie_manager.set("saved_role", user['role'], expires_at=datetime.now() + pd.Timedelta(days=30), secure=True, same_site='lax')
+                    
+                    st.success("로그인 성공! 쿠키를 적용 중입니다. 잠시만 기다려주세요...")
+                    # st.rerun()을 바로 호출하면 쿠키가 브라우저에 저장되기 전에 화면이 새로고침되어 유실됩니다.
+                    # 이를 방지하기 위해 쿠키 기록이 완료되도록 1.5초 대기 후 rerun합니다.
+                    time.sleep(1.5)
                     st.rerun()
                 else:
                     st.error(msg)
