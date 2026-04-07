@@ -513,11 +513,14 @@ def main_app():
                                 st.success("수정 완료!")
                                 st.rerun()
                         with col2:
-                            if st.button("🔴 위 여행 삭제하기", key=f"del_{tid}", use_container_width=True):
-                                del st.session_state.folders[tid]
-                                save_folders(st.session_state.folders)
-                                st.success("여행이 삭제되었습니다.")
-                                st.rerun()
+                            with st.popover("🔴 위 여행 삭제하기", use_container_width=True):
+                                st.warning("정말 해당 방을 삭제하시겠습니까? (복구 불가)")
+                                if st.button("✅ 확정 (삭제하기)", key=f"del_{tid}", type="primary", use_container_width=True):
+                                    del st.session_state.folders[tid]
+                                    save_folders(st.session_state.folders)
+                                    st.success("여행이 삭제되었습니다.")
+                                    time.sleep(0.5)
+                                    st.rerun()
 
                 st.divider()
                 st.subheader("사용자 관리")
@@ -775,7 +778,7 @@ def main_app():
                                 st.warning("이미지 파일을 찾을 수 없습니다.")
 
                     with st.expander("👉 밀어서 메뉴 보기 (수정/삭제)"):
-                        if role == 'admin':
+                        if has_manage_perm:
                             c_amt, c_del = st.columns([3, 1])
                             with c_amt:
                                 new_item = st.text_input("새 항목명", value=row['Item'], key=f"adm_i_{row['ID']}")
