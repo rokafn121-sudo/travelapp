@@ -496,10 +496,18 @@ def main_app():
                         new_pw = st.text_input("비밀번호", value=tdata.get('password', ''), key=f"edit_pw_{tid}")
                         new_budget = st.number_input("예산", value=int(tdata.get('budget', 0)), key=f"edit_budget_{tid}")
                         
+                        # [ADDED] 총무 배정 UI: 현재 방의 총무를 선택하거나 해제할 수 있습니다.
+                        manager_options = ["(지정 안함)"] + list(users.keys())
+                        current_mgr = tdata.get('manager_id', "(지정 안함)")
+                        if current_mgr not in manager_options:
+                            current_mgr = "(지정 안함)"
+                        new_manager = st.selectbox("총무 지정", manager_options, index=manager_options.index(current_mgr), key=f"edit_mgr_{tid}")
+                        
                         col1, col2 = st.columns(2)
                         with col1:
                             if st.button("수정 저장", key=f"save_{tid}", type="secondary"):
-                                st.session_state.folders[tid].update({"emoji": new_emj, "name": new_name, "password": new_pw, "budget": new_budget})
+                                manager_val = new_manager if new_manager != "(지정 안함)" else ""
+                                st.session_state.folders[tid].update({"emoji": new_emj, "name": new_name, "password": new_pw, "budget": new_budget, "manager_id": manager_val})
                                 save_folders(st.session_state.folders)
                                 st.success("수정 완료!")
                                 st.rerun()
@@ -655,7 +663,18 @@ def main_app():
                 if cat in cat_totals and cat_totals[cat] > limit:
                     st.error(f"⚠️ **예산 초과 경고:** '{cat}' 카테고리 지출({cat_totals[cat]:,.0f}원)이 설정된 예산({limit:,.0f}원)을 초과했습니다!")
 
-        tab_add, tab_history, tab_stats, tab_itinerary = st.tabs(["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"])
+        # [ADDED] 총무 권한 여부 연산
+        is_manager = (username == trip_data.get('manager_id', ''))
+        is_admin = (role == 'admin')
+        has_manage_perm = is_manager or is_admin
+
+        # 권한에 따라 탭 리스트 분기 생성
+        tab_names = ["➕ 지출 추가", "📋 내역", "📊 통계", "📅 일정 관리"]
+        if has_manage_perm:
+            tab_names.append("⚙️ 방 설정")
+            
+        tabs = st.tabs(tab_names)
+        tab_add, tab_history, tab_stats, tab_itinerary = tabs[0], tabs[1], tabs[2], tabs[3]
 
         with tab_add:
             with st.container():
@@ -669,7 +688,10 @@ def main_app():
                 # Fetch rate quietly
                 current_rate = get_exchange_rate(currency, date)
                 
-                category = st.selectbox("카테고리", ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"])
+                # [ADDED] 방에 커스텀 카테고리가 등록되어 있으면 사용하고, 아니면 기본 항목 제공
+                default_cats = ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"]
+                custom_cats = trip_data.get('custom_categories', default_cats)
+                category = st.selectbox("카테고리", custom_cats)
                 item = st.text_input("무엇을 샀나요?", placeholder="예: 맛있는 라멘")
                 
                 # Photo upload
@@ -985,6 +1007,55 @@ def main_app():
                                             st.rerun()
 
                             st.write("") # card bottom margin
+
+        # [ADDED] 방 설정 탭 (권한이 있는 사람만 tabs 리스트 길이에 따라 접근)
+        if len(tabs) >= 5:
+            tab_settings = tabs[4]
+            with tab_settings:
+                st.markdown("### ⚙️ 방 설정 (총무/관리자 전용)")
+                st.caption("방의 기본 정보와 지출 카테고리를 관리합니다. 👑")
+                
+                with st.form(f"room_settings_form_{trip_id}"):
+                    s_name = st.text_input("여행 이름", value=trip_data['name'])
+                    s_pw = st.text_input("방 비밀번호", value=trip_data.get('password', ''))
+                    
+                    try:
+                        s_start = pd.to_datetime(trip_data.get('start_date', datetime.now().strftime("%Y-%m-%d")))
+                        s_end = pd.to_datetime(trip_data.get('end_date', datetime.now().strftime("%Y-%m-%d")))
+                    except:
+                        s_start = s_end = datetime.now()
+                        
+                    s_dates = st.date_input("여행 기간", value=(s_start, s_end))
+                    s_budget = st.number_input("총 예산 (KRW)", value=int(trip_data.get('budget', 0)), step=10000)
+                    
+                    # 카테고리 수정 (쉼표로 구분)
+                    default_cats = ["식비 (Food)", "교통 (Transport)", "숙박 (Accommodation)", "쇼핑 (Shopping)", "관광 (Activities)", "기타 (Others)"]
+                    current_cats = trip_data.get('custom_categories', default_cats)
+                    s_cats_str = st.text_input("지출 카테고리 (쉼표로 구분하여 입력)", value=", ".join(current_cats))
+                    st.caption("예시: 식비, 교통, 숙박, 공금, 기념품")
+                    
+                    if st.form_submit_button("설정 저장하기 ✨", use_container_width=True):
+                        new_cats_list = [c.strip() for c in s_cats_str.split(',') if c.strip()]
+                        if isinstance(s_dates, tuple) and len(s_dates) == 2:
+                            start_str, end_str = s_dates[0].strftime("%Y-%m-%d"), s_dates[1].strftime("%Y-%m-%d")
+                        else:
+                            dt_obj = s_dates if s_dates else datetime.now()
+                            start_str = end_str = dt_obj.strftime("%Y-%m-%d") if hasattr(dt_obj, 'strftime') else ""
+                            
+                        trip_data.update({
+                            "name": s_name,
+                            "password": s_pw,
+                            "start_date": start_str,
+                            "end_date": end_str,
+                            "budget": int(s_budget),
+                            "custom_categories": new_cats_list if new_cats_list else default_cats
+                        })
+                        st.session_state.folders[trip_id] = trip_data
+                        save_folders(st.session_state.folders)
+                        st.success("방 설정이 안전하게 저장되었습니다!")
+                        time.sleep(0.5)
+                        st.rerun()
+
 
 
 # --- 로그인 / 회원가입 화면 (Center Layout) ---
